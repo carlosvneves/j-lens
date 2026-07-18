@@ -1,0 +1,19 @@
+[project]
+name = "j-space"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "accelerate>=1.14.0",
+    "jlens",
+    "transformers>=5.13.1",
+]
+
+[tool.uv.workspace]
+members = [
+    "jacobian-lens",
+]
+
+[tool.uv.sources]
+jlens = { workspace = true }
