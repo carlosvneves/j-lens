@@ -20,4 +20,6 @@ viz_*.html
 
 # Repo vendorizado do jlens (clone externo; walkthrough.ipynb já conteve
 # token — nunca commitar daqui)
-jacobian-lens/
+jacobian-lens/**
+
+.claude/**
