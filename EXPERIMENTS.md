@@ -70,34 +70,33 @@ Conceitos e matemática: `NOTES.md`. Código: `run_local.py`.
 
 ## RUN-002 — pendente — controles de eco e de viés de formato
 
-### Mudança forçada de modelo (2026-07-18)
+### Incidente de infraestrutura (2026-07-18)
 
-`Qwen/Qwen3.5-4B` sumiu do HF Hub (404); cache local apagado. Novo par
-modelo+lens: **google/gemma-4-E4B-it** (4B denso, multimodal, bf16 MPS) +
-lens `solarkyle/jspace-lenses :: gemma-4-e4b-it/lens.pt` (fit: 100 prompts
-WikiText-103, bf16). Consequências:
+`Qwen/Qwen3.5-4B` deu 404 no HF Hub por algumas horas; cache local (8.8 GB)
+foi apagado e o código foi migrado para gemma-4-E4B-it + lens do registro
+`solarkyle/jspace-lenses`. O modelo VOLTOU ao Hub no mesmo dia; default
+revertido para `qwen3.5-4b` — RUN-002 segue comparável à RUN-001 (mesmo
+modelo, mesmo lens n=1000, agora servido da branch main do
+neuronpedia/jacobian-lens, sem revision especial). Requer re-download do
+modelo (~9 GB).
 
-- RUN-002 deixa de ser diretamente comparável à RUN-001 (modelo diferente,
-  vocabulário diferente, lens com n=100 vs n=1000). As 4 predições abaixo
-  são agnósticas de modelo e continuam valendo; contrastes são sempre
-  intra-run.
-- Se os achados da RUN-001 (dissociação de `independent`, Δ crescente)
-  reaparecerem no Gemma, vira evidência de robustez entre famílias — de
-  graça.
-- Código agora multi-modelo: registro em `model_configs.py`, seleção via
-  `JSPACE_MODEL` (default `gemma-4-e4b-it`; `qwen3.5-4b` mantido para
-  reprodutibilidade; `qwen3.6-27b` já configurado para o Colab, lens do
-  mesmo registro solarkyle).
-- Sem gloss para Gemma (o gloss local é do vocab Qwen) — dashboards
-  funcionam sem tradução de tokens raros. `viz_*.html` agora inclui o
-  modelo no nome do arquivo.
-- Gemma exige aceitar licença no HF + token de leitura.
+Saldo positivo do incidente — código agora é multi-modelo:
+
+- Registro em `model_configs.py`, seleção via `JSPACE_MODEL`
+  (default `qwen3.5-4b`).
+- `gemma-4-e4b-it` configurado como alternativa local: fallback se o Qwen
+  sumir de novo E teste de robustez entre famílias (mesma bateria, outra
+  família/vocabulário). Lens do solarkyle (n=100) porque o neuronpedia só
+  tem o E4B base, não o -it.
+- `qwen3.6-27b` pronto para o Colab com lens n=1000 do neuronpedia
+  (fonte primária unificada).
+- `viz_*.html` agora inclui o modelo no nome do arquivo.
 
 ### Condições
 
-RUN-001 + as modificações acima, agora em gemma-4-E4B-it. 4 condições:
-independent, collusion, no_echo, open_concept. Baseline dos deltas:
-independent.
+RUN-001 + as modificações acima, mesmo modelo da RUN-001 (Qwen3.5-4B).
+4 condições: independent, collusion, no_echo, open_concept. Baseline dos
+deltas: independent.
 
 ### Predições (registradas ANTES da run)
 
