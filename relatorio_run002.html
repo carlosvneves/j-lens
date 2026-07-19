@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RUN-002 — Jacobian Lens aplicado à colusão algorítmica</title>
+<style>
+:root{
+  --bg:#faf9f6; --card:#fff; --ink:#1c1c1c; --muted:#666; --line:#e3e0da;
+  --accent:#8a3ffc; --ok:#0d7a3f; --warn:#b8860b; --bad:#b3261e;
+  --c-ind:#2563eb; --c-col:#dc2626; --c-ne:#d97706; --c-oc:#7c3aed;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+h1{font-size:1.9rem;line-height:1.25;margin:.2rem 0 .4rem}
+h2{font-size:1.35rem;margin:2.6rem 0 .8rem;border-bottom:2px solid var(--line);padding-bottom:.35rem}
+h3{font-size:1.08rem;margin:1.8rem 0 .5rem}
+.sub{color:var(--muted);margin:0 0 1.5rem}
+.badge{display:inline-block;background:#efe9ff;color:var(--accent);border-radius:99px;
+  padding:.1rem .7rem;font-size:.8rem;font-weight:600;letter-spacing:.03em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:1.1rem 1.3rem;margin:1rem 0}
+.box{border-left:4px solid var(--accent);background:#f4f0fb;border-radius:6px;
+  padding:.8rem 1.1rem;margin:1rem 0}
+.box.ok{border-color:var(--ok);background:#eef7f0}
+.box.warn{border-color:var(--warn);background:#fbf5e6}
+code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;
+  background:#f0eee9;border-radius:4px;padding:.08em .35em}
+pre{background:#f0eee9;border-radius:8px;padding:.9rem 1rem;overflow-x:auto;font-size:.85rem;line-height:1.5}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;font-size:.88rem;margin:.8rem 0}
+.tscroll{overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#f3f1ec;font-weight:600}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace;font-size:.82rem}
+.hit{background:#e2f3e7;font-weight:600}
+.miss{background:#fbe9e7}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;font-size:.82rem;margin:.4rem 0 .2rem}
+.legend span{display:inline-flex;align-items:center;gap:.4rem}
+.dot{width:14px;height:4px;border-radius:2px;display:inline-block}
+figure{margin:1.4rem 0}
+figcaption{font-size:.85rem;color:var(--muted);margin-top:.4rem}
+svg{max-width:100%;height:auto;display:block}
+.pill{font-weight:700}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+.prompt{font-style:italic;color:#333}
+details{margin:.6rem 0}
+summary{cursor:pointer;font-weight:600}
+.formula{font-family:ui-monospace,Menlo,monospace;font-size:1rem;text-align:center;
+  background:#f0eee9;border-radius:8px;padding:.8rem;margin:.8rem 0}
+.small{font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="badge">RUN-002 · 18 jul 2026 · Qwen3.5-4B · MacBook M5 (MPS)</span>
+<h1>O modelo "pensa" em colusão antes de responder?</h1>
+<p class="sub">Relatório didático da RUN-002 — Jacobian Lens aplicado a prompts de
+colusão de preços. Reprodução do método de Anthropic,
+<a href="https://transformer-circuits.pub/2026/workspace">“Verbalizable Representations
+Form a Global Workspace in Language Models”</a>, adaptado à pesquisa de
+colusão algorítmica (antitruste).</p>
+
+<h2>1. A pergunta de pesquisa</h2>
+<p>Quando um LLM lê <span class="prompt">"dois concorrentes combinam o mesmo
+preço — isso é ilegal?"</span> e responde "Yes", há duas possibilidades:</p>
+<ol>
+<li>Ele apenas <b>casa padrões superficiais</b> (viu a palavra "combine", cospe "Yes"); ou</li>
+<li>Ele constrói, nas camadas intermediárias, uma <b>representação interna do conceito
+de coordenação</b> ("isso é colusão / cartel") e <em>depois</em> traduz esse conceito
+no verdict Yes/No.</li>
+</ol>
+<p>O artigo da Anthropic mostra que conceitos verbalizáveis formam um
+<b>global workspace</b>: uma banda de camadas intermediárias onde o modelo representa
+"o que ele está pensando" em formato quase-linguístico, antes de as últimas camadas
+converterem isso em tokens de saída. Nossa hipótese: o conceito
+<b>coordenação vs. independência</b> vive nesse workspace. Se vive, dá para <em>lê-lo</em>
+— e isso interessa a antitruste: é evidência de que um agente algorítmico distingue
+internamente conduta coordenada de paralelismo independente.</p>
+
+<h2>2. O método, passo a passo</h2>
+
+<h3>2.1 O que é um "lens"?</h3>
+<p>Um transformer tem um <b>residual stream</b>: um vetor <code>h</code> por posição
+do texto, que cada camada atualiza. Só no fim ele é projetado no vocabulário
+(~248 mil tokens) para virar probabilidades. Um <b>lens</b> faz essa projeção
+<em>antecipadamente</em>, em cada camada, para espiar "o que o modelo acha até aqui".</p>
+<ul>
+<li><b>Logit lens</b> (baseline): aplica a matriz de saída <code>W_U</code> direto
+em <code>h</code> da camada ℓ. Simples, mas assume que toda camada já "fala a língua"
+da camada final — o que é falso nas camadas médias.</li>
+<li><b>Jacobian lens</b> (o método do artigo): primeiro <em>traduz</em> a representação
+da camada ℓ para o espaço da saída usando o Jacobiano médio do restante da rede:</li>
+</ul>
+<div class="formula">jlens<sub>ℓ</sub>(h) = W<sub>U</sub> · LN( J̄<sub>ℓ</sub> · h )</div>
+<p>onde <code>J̄<sub>ℓ</sub></code> é a média, sobre 1000 trechos de WikiText, do
+Jacobiano (derivada linearizada) do trecho da rede entre a camada ℓ e a saída.
+Intuição: <b>J̄ é um "dicionário aprendido" que verte o dialeto interno da camada ℓ
+para o vocabulário</b>. O lens que usamos veio pronto do repositório
+<code>neuronpedia/jacobian-lens</code> (fit n=1000, pareado exatamente com o
+Qwen3.5-4B — lens e modelo são um par indissociável, pois os Jacobianos são
+específicos por modelo e camada).</p>
+<p class="small">Ressalva importante do próprio artigo: o subespaço capturado pelo
+J-lens explica só ~6–10% da variância do residual stream. Ele lê a "fração
+verbalizável" do estado — por isso ranks absolutos não são evidência; só
+<b>contrastes</b> entre condições são (ver §2.4).</p>
+
+<h3>2.2 Os três regimes de profundidade</h3>
+<p>O artigo descreve (e a RUN-001 já tinha reproduzido) três zonas nas 32 camadas
+(aqui lidas de 2 em 2, mais as duas últimas):</p>
+<table>
+<tr><th>Camadas</th><th>Regime</th><th>O que se vê no lens</th></tr>
+<tr><td>L0–L12</td><td>Processamento local</td><td>Ruído/tokens especiais — ignorar</td></tr>
+<tr><td>L12–L28</td><td><b>Workspace</b></td><td>Conceitos verbalizáveis ("o pensamento")</td></tr>
+<tr><td>L30–L31</td><td>Motor</td><td>Comprometimento com o token de saída</td></tr>
+</table>
+
+<h3>2.3 As quatro condições experimentais</h3>
+<p>Lemos o residual stream na <b>última posição do prompt</b> (a que prediz o
+1º token da resposta), com chat template e <code>enable_thinking=False</code>.</p>
+<div class="tscroll"><table>
+<tr><th>Condição</th><th>Prompt</th><th>Para que serve</th></tr>
+<tr><td><b style="color:var(--c-ind)">independent</b></td>
+<td class="prompt">Two competitors independently choose the same price. Illegal? Just answer Yes or No.</td>
+<td>Baseline legal: paralelismo consciente (resposta correta: <b>No</b>).</td></tr>
+<tr><td><b style="color:var(--c-col)">collusion</b></td>
+<td class="prompt">Two competitors combine to choose the same price. Illegal? Just answer Yes or No.</td>
+<td>Conduta ilegal com palavra-gatilho explícita ("combine"). Resposta: <b>Yes</b>.</td></tr>
+<tr><td><b style="color:var(--c-ne)">no_echo</b></td>
+<td class="prompt">After a private phone call between their sales managers, two competitors set the same price. Illegal? Just answer Yes or No.</td>
+<td><b>Controle de eco lexical</b>: descreve coordenação sem NENHUMA palavra-gatilho
+("combine", "collude"...). Se o sinal persistir, não é cópia de palavras do prompt —
+é inferência.</td></tr>
+<tr><td><b style="color:var(--c-oc)">open_concept</b></td>
+<td class="prompt">Two competitors secretly meet and then set identical prices. What is the one-word legal term for this practice?</td>
+<td><b>Controle de formato</b>: sem slot Yes/No e sem eco. Testa se o conceito
+("collusion") emerge no workspace <em>antes</em> de virar resposta.</td></tr>
+</table></div>
+
+<h3>2.4 A métrica: rank de keyword, e por que só o contraste vale</h3>
+<p>Para cada camada, o lens produz um logito para cada um dos 248.320 tokens do
+vocabulário. O <b>rank</b> de um token é sua posição na fila ordenada
+(rank 1 = token mais provável). Rastreamos: <code>Yes</code>, <code>No</code>,
+<code>collusion</code>, <code>cartel</code>, <code>conspiracy</code>,
+<code>agreement</code>, <code>independent</code>.</p>
+<div class="box">
+<b>Regra de leitura</b> (a lição central da RUN-001): rank absoluto não prova nada —
+o lens foi ajustado em WikiText e lê só parte do estado. O que é evidência é o
+<b>contraste da mesma keyword, na mesma camada, entre condições</b>. Exemplo: rank
+15 mil parece "ruim", mas 15 mil está à frente de 94% do vocabulário; e se a mesma
+palavra está em 15 mil numa condição e em 76 mil na outra, essa <em>diferença</em>
+é o sinal.
+</div>
+
+<h3>2.5 Predições pré-registradas</h3>
+<p>Antes de rodar, registramos no diário (<code>EXPERIMENTS.md</code>) quatro
+predições — isso evita "torturar os dados até confessarem":</p>
+<ol>
+<li><b>P1</b> — no_echo deve puxar Yes como o collusion na banda workspace
+(se não puxar, RUN-001 era eco lexical).</li>
+<li><b>P2</b> — o rank de <code>independent</code> deve <b>despencar</b> no no_echo,
+como despenca no collusion — mesmo sem gatilho no prompt.</li>
+<li><b>P3</b> — no open_concept, <code>collusion</code>/<code>cartel</code> deve
+chegar perto de rank 1 <b>emergindo na banda workspace</b> (L14–L26), não só nas
+2 últimas camadas.</li>
+<li><b>P4</b> — swap de 1ª ordem (empurrar o residual do independent na direção
+"collusion" na L~24) deve virar a resposta No→Yes com α moderado.</li>
+</ol>
+
+<h2>3. Resultados</h2>
+<p class="small">Dados extraídos dos dashboards <code>viz_qwen3.5-4b_*.html</code>
+gerados pela run de 18/07/2026 (ranks na última posição do prompt, por camada).
+Gráficos em escala log — quanto mais <b>baixo</b>, mais o modelo "pensa" naquele token.</p>
+
+<h3>3.1 O achado principal: o modelo suprime "independência" quando infere coordenação</h3>
+<div class="legend">
+<span><i class="dot" style="background:var(--c-ind)"></i> independent (legal)</span>
+<span><i class="dot" style="background:var(--c-col)"></i> collusion (gatilho explícito)</span>
+<span><i class="dot" style="background:var(--c-ne)"></i> no_echo (sem gatilho!)</span>
+</div>
+<figure><div id="fig1"></div>
+<figcaption><b>Fig. 1 — Rank do token <code>independent</code> por camada, nas três
+condições Yes/No.</b> Na banda workspace (área sombreada, L14–L28), a condição legal
+mantém <code>independent</code> perto do topo (~0,3–8% do vocabulário), enquanto
+collusion E no_echo o empurram para 30–100 mil. A curva laranja (no_echo) acompanha
+a vermelha sem nenhuma palavra-gatilho no prompt.</figcaption></figure>
+
+<div class="box ok"><b>P2 confirmada.</b> No prompt do telefonema
+(<i>no_echo</i>), nenhuma palavra remete a coordenação ou independência — e ainda
+assim, a partir de L16, o rank de <code>independent</code> salta de ~800 para
+18–76 mil, espelhando o collusion (32–100 mil), enquanto no prompt legal ele fica
+em 700–20 mil. O modelo <b>inferiu</b> a natureza da conduta e ajustou sua
+representação interna de "independência" de acordo. Isso descarta a principal
+ameaça à validade da RUN-001 (eco lexical via induction heads).</div>
+
+<p>Detalhe que reforça a leitura: a dissociação aparece exatamente em <b>L16</b> —
+início da banda workspace — e não antes. Nas camadas 0–14 as três curvas andam
+juntas (o modelo ainda não "decidiu" o que o cenário significa).</p>
+
+<h3>3.2 O conceito emerge antes da resposta (open_concept)</h3>
+<div class="legend">
+<span><i class="dot" style="background:var(--c-oc)"></i> collusion</span>
+<span><i class="dot" style="background:#0e7490"></i> cartel</span>
+<span><i class="dot" style="background:#65a30d"></i> conspiracy</span>
+<span><i class="dot" style="background:#9f7aea"></i> agreement</span>
+<span><i class="dot" style="background:#999"></i> independent</span>
+</figure>
+</div>
+<figure><div id="fig2"></div>
+<figcaption><b>Fig. 2 — Prompt open_concept ("qual o termo jurídico de uma palavra?"):
+rank dos candidatos por camada.</b> Entre L16 e L20, <code>collusion</code> cai de
+~146 mil para <b>rank 1</b> — e fica em rank 1 por toda a banda L20–L28, muito antes
+do regime motor. <code>cartel</code> e <code>conspiracy</code> acompanham (ranks
+12–37 em L20). <code>independent</code> faz o movimento oposto: é ativamente
+suprimido (rank &gt; 200 mil, cauda do vocabulário).</figcaption></figure>
+
+<div class="box ok"><b>P3 confirmada — e é o resultado mais bonito da run.</b>
+A transição L18→L20 (rank 3.240 → rank 1) acontece no meio da banda workspace,
+8+ camadas antes do regime motor. Ou seja: "collusion" não é só o token de saída —
+é uma <b>representação intermediária estável</b> que o modelo mantém por metade da
+rede antes de verbalizá-la. É exatamente a assinatura de workspace que o artigo
+descreve. Bônus: a supressão ativa de <code>independent</code> até rank ~227 mil
+(pior que o acaso, que seria ~124 mil) sugere representação <em>bipolar</em> —
+coordenação e independência como extremos de um mesmo eixo.</div>
+
+<h3>3.3 Yes vs. No: o contraste entre condições aponta na direção prevista</h3>
+<div class="legend">
+<span><i class="dot" style="background:var(--c-ind)"></i> independent</span>
+<span><i class="dot" style="background:var(--c-col)"></i> collusion</span>
+<span><i class="dot" style="background:var(--c-ne)"></i> no_echo</span>
+</div>
+<figure><div id="fig3"></div>
+<figcaption><b>Fig. 3 — Rank do token <code>No</code> (com espaço) por camada.</b>
+Na janela L16–L18, as condições de coordenação empurram "No" para longe do topo
+(rank 1.200–4.000) enquanto a condição legal o mantém perto (rank 650–800) —
+o modelo "resiste" ao No quando infere conduta ilegal. Nas camadas finais todos
+convergem (viés de formato do slot de resposta).</figcaption></figure>
+
+<div class="box ok"><b>P1 confirmada.</b> A tabela Δ(Yes−No) vs baseline (em
+logitos, do console da run) mostra ruído (±0,4) até L12 e depois as duas colunas
+positivas e <em>crescentes</em> por toda a banda workspace:
+<b>collusion</b> +1,06 (L16) → +2,25 (L20) → +4,62 (L28);
+<b>no_echo</b> +0,56 (L16) → +2,06 (L20) → +5,38 (L28).
+O prompt do telefonema — sem nenhuma palavra-gatilho — inclina o modelo para
+"Yes" (ilegal) tanto quanto o prompt com "combine". Combinada com a Fig. 3
+(ranks), fecha o caso: o sinal da RUN-001 era conceito inferido, não eco.
+As respostas geradas conferem: independent → <b>'No'</b>, collusion → <b>'Yes'</b>,
+no_echo → <b>'Yes'</b>.</div>
+
+<h3 id="swap">3.4 O swap não virou o verdict (P4 falhou — e isso é informativo)</h3>
+<p>Injetamos no residual da camada L21 do prompt <i>independent</i> a direção de
+1ª ordem que empurra o conceito <code>independent → collusion</code>
+(Δh = α·J̄ᵀ(w<sub>collusion</sub>−w<sub>independent</sub>)), com α ∈ {4, 8, 16}:</p>
+<pre><code>alpha=  0.0 (baseline) J-lens@L22:  Depends depends  depends  Dep | resposta: 'No'
+alpha=  4.0            J-lens@L22:  Depends  Yes Yes depends      | resposta: 'No'
+alpha=  8.0            J-lens@L22:  collusion Yes  Yes False      | resposta: 'No'
+alpha= 16.0            J-lens@L22:  collusion _coll coll Coll     | resposta: 'No'</code></pre>
+<div class="box warn"><b>P4 não confirmada — mas com um detalhe interessante:
+a intervenção FUNCIONA no workspace e ainda assim o verdict não muda.</b>
+Com α≥8 o J-lens da camada seguinte passa a ler "collusion" como pensamento
+dominante; com α=16 só resta collusion. Ou seja, conseguimos <em>escrever</em>
+o conceito no workspace — mas a resposta continua 'No'. Hipóteses (a testar na
+RUN-003): (a) a direção de 1ª ordem via J̄ᵀ acerta o <em>subespaço legível</em>
+mas não a direção <em>causal</em> que as camadas seguintes consomem;
+(b) somar o delta em todas as posições dilui/conflita com o contexto;
+(c) o artigo reporta 54–70% de sucesso — com n=1, cair nos 30–46% é plausível.
+O teste decisivo é o patching real de residual (substituição entre prompts,
+não soma de direção), já no backlog.</div>
+
+<h3>3.5 Placar das predições</h3>
+<table>
+<tr><th>Predição</th><th>Critério</th><th>Resultado</th></tr>
+<tr class="hit"><td>P1 — Δ(Yes−No) positivo no no_echo</td>
+<td>Coluna Δ vs baseline positiva e crescente na banda workspace</td>
+<td><span class="pill ok">✔ Confirmada</span> (+0,56 em L16 → +5,38 em L28; collusion: +1,06 → +4,62)</td></tr>
+<tr class="hit"><td>P2 — supressão de <code>independent</code> no no_echo</td>
+<td>Rank despenca sem gatilho lexical</td>
+<td><span class="pill ok">✔ Confirmada</span> (800 → 18–76 mil a partir de L16)</td></tr>
+<tr class="hit"><td>P3 — conceito emerge no workspace (open_concept)</td>
+<td><code>collusion</code> ≈ rank 1 antes das camadas finais</td>
+<td><span class="pill ok">✔ Confirmada</span> (rank 1 de L20 a L28; emergência em L18–L20)</td></tr>
+<tr class="miss"><td>P4 — swap No→Yes na L21</td>
+<td>Flip com α moderado</td>
+<td><span class="pill bad">✘ Falhou</span> — conceito escrito no workspace (lens lê "collusion"), verdict segue 'No'</td></tr>
+</table>
+<p class="small">Curiosidade da run: no open_concept o modelo respondeu
+<b>'Conspiracy'</b>, não 'Collusion' — apesar de <code>collusion</code> ser rank 1
+no lens até L28. Na última camada o top vira fragmentos de início de palavra
+("Con", "Coll", "Cart"): a resposta abre um turno novo (sem espaço à frente),
+e nesse regime BPE "Conspiracy" venceu. O conceito interno e o token de
+superfície são coisas distintas — mais um argumento para ler o workspace, não
+só o output.</p>
+
+<h2>4. O que isso significa para a pesquisa de colusão algorítmica</h2>
+<ul>
+<li><b>O modelo tem um conceito interno de coordenação, não um reflexo lexical.</b>
+O controle no_echo elimina a explicação "ele só copiou a palavra do prompt":
+descrever um telefonema privado seguido de preços iguais basta para o modelo
+reorganizar suas representações internas em torno do eixo coordenação/independência.</li>
+<li><b>O conceito precede o verdict.</b> No open_concept, "collusion" é rank 1
+no meio da rede — o julgamento jurídico é computado no workspace e só depois
+verbalizado. Isso abre a porta para <em>monitorar</em> agentes de precificação:
+ler o workspace pode revelar "intenção de coordenar" antes de qualquer output.</li>
+<li><b>A representação parece bipolar</b> (supressão ativa de "independent" abaixo
+do acaso), sugerindo um eixo linear. Mas o swap mostrou o limite: dá para
+<em>escrever</em> "collusion" no subespaço legível sem mudar o verdict —
+ler o workspace ≠ controlar o circuito causal. O elo causal fica para o
+patching completo (RUN-003).</li>
+</ul>
+
+<h2>5. Limitações honestas</h2>
+<ul>
+<li><b>n=1 por condição.</b> Um prompt por célula. A bateria de paráfrases
+(~10 por condição, já no backlog) é o próximo passo obrigatório antes de qualquer
+afirmação estatística.</li>
+<li><b>Lens fora de domínio.</b> Fit em WikiText, lendo prompts jurídicos; captura
+~6–10% da variância. Por isso todo o desenho é contrastivo.</li>
+<li><b>Falta controle negativo.</b> "Conversaram sobre o tempo e praticaram o mesmo
+preço" diria se qualquer contato + preços iguais dispara o sinal (backlog).</li>
+<li><b>Um modelo, 4B.</b> Replicação planejada: Qwen3.6-27B no Colab e
+gemma-4-E4B-it (outra família) — a infraestrutura multi-modelo já está pronta
+(<code>model_configs.py</code>).</li>
+<li><b>Swap é aproximação de 1ª ordem</b>, não patching real de residual.</li>
+</ul>
+
+<h2>6. Próximos passos</h2>
+<ol>
+<li>Diagnóstico do swap (RUN-003): variar camada (L16–L26), α intermediários,
+delta só na última posição vs todas — e o teste decisivo, patching real de
+residual entre prompts (substituição, não soma de direção).</li>
+<li>Bateria de paráfrases + controle negativo ("weather").</li>
+<li>Replicação 27B (Colab) e cross-família (Gemma-4-E4B-it).</li>
+</ol>
+
+<details><summary>Apêndice — dados brutos (rank por camada, última posição do prompt)</summary>
+<p class="small">Camadas lidas: 0, 2, 4, … 28, 30, 31. Rank 1 = token mais provável
+entre 248.320. Fonte: dashboards <code>viz_qwen3.5-4b_*.html</code> (18/07/2026).</p>
+<div id="rawtables"></div>
+</details>
+
+<p class="small" style="margin-top:3rem;border-top:1px solid var(--line);padding-top:1rem">
+j-space · RUN-002 · Qwen3.5-4B bf16 (MPS) · lens neuronpedia/jacobian-lens n=1000 ·
+método: transformer-circuits.pub/2026/workspace · diário: EXPERIMENTS.md</p>
+</div>
+
+<script>
+// Ranks 1-indexados (extraídos dos viz, +1 sobre o índice 0-based interno).
+const LAYERS=[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,31];
+const D={
+ independent:{" No":[32236,19988,8748,965,525,564,278,449,649,814,64,43,24,11,4,3,13],
+  " Yes":[180002,119943,35701,6857,1148,1322,312,231,90,63,4,6,1,1,1,4,12],
+  " agreement":[6862,54790,138528,25473,19274,2949,3813,7509,4850,17576,57542,102892,48647,76537,27956,42534,41910],
+  " independent":[1636,842,16400,4749,7119,7473,1498,740,15589,15164,17683,19860,10731,4888,1027,2471,7025],
+  " conspiracy":[126805,67209,175431,63965,77164,11577,2984,4517,7180,4754,4475,11326,30687,14603,1736,1865,4414],
+  " collusion":[157143,164108,223962,156476,189630,78250,42148,91110,45096,27106,49722,52026,48206,35695,8217,19910,36116],
+  " cartel":[220953,160052,217765,133747,162085,52104,31455,26744,24550,18570,34682,48632,69351,76745,23214,15292,22089]},
+ collusion:{" No":[32847,18203,9354,907,492,646,341,741,1208,3244,192,61,33,20,6,4,15],
+  " Yes":[180446,119699,37691,6949,1148,1360,368,265,79,67,4,1,1,1,1,3,6],
+  " agreement":[6783,55727,144500,24710,16972,2390,3589,7495,6054,17251,44810,83539,26555,54681,21872,33116,28560],
+  " independent":[1657,817,14778,4509,6607,7554,1809,885,32202,90739,71373,99973,77803,70834,14172,14553,23393],
+  " conspiracy":[126859,67857,175973,62048,76279,8719,2564,4024,8513,5593,2875,4842,12667,5233,967,1055,2929],
+  " collusion":[157255,162605,225411,155404,189020,67100,38043,82980,44480,20326,27183,34158,27910,21326,5454,11499,21108],
+  " cartel":[221223,155525,216595,137545,160019,46684,29081,20530,30642,16621,16486,26509,31940,27862,7626,5805,10215]},
+ no_echo:{" No":[32854,25545,7649,839,429,427,387,1093,1608,3970,179,61,32,20,8,4,15],
+  " Yes":[179165,134348,34177,6663,913,961,425,400,135,77,4,1,1,1,1,3,5],
+  " agreement":[6307,59329,141823,33076,24938,3532,3555,7211,6217,18014,45841,83556,25392,46447,14787,26790,21407],
+  " independent":[1591,787,13636,3728,5476,6413,1515,813,18342,76162,49862,67484,61852,65860,12037,14161,18912],
+  " conspiracy":[126235,65787,173924,58138,73643,9631,2431,2403,5217,5033,2167,4386,14980,5116,927,1009,2965],
+  " collusion":[155029,162676,228684,156334,173903,47476,24471,51714,42042,21202,24095,31293,28156,20630,4860,11434,22608],
+  " cartel":[219868,149392,219648,146750,173170,61010,31296,21872,34579,18594,17316,28918,34314,29985,8380,6802,11979]},
+ open_concept:{" No":[31111,44984,3892,1160,395,496,578,5455,59061,71951,137490,93914,115663,23160,537,295,1980],
+  " Yes":[181222,171154,17662,5986,4110,3354,2300,4184,33455,44806,89099,78470,46952,25376,2942,3714,8872],
+  " agreement":[6978,61615,77333,25582,45399,23240,50320,118484,131766,161274,1710,839,20,49,29,609,1046],
+  " independent":[1461,709,4678,3731,9022,14621,5463,4881,89378,222485,203639,227631,213754,227457,170036,141874,72101],
+  " conspiracy":[134322,60469,147139,88117,108869,42709,26788,65250,68630,10213,38,13,3,7,3,11,60],
+  " collusion":[155266,154861,221427,172103,199692,128572,160382,183006,146225,3241,1,1,1,1,1,3,69],
+  " cartel":[221500,124402,214528,147952,153314,88895,74612,43471,18307,1101,13,8,4,2,2,6,49]}
+};
+
+function chart(el, series, opts){
+  const W=820,H=340,mL=62,mR=16,mT=14,mB=40;
+  const iw=W-mL-mR, ih=H-mT-mB;
+  const lmax=Math.log10(260000);
+  const x=i=>mL+iw*i/(LAYERS.length-1);
+  const y=r=>mT+ih*(Math.log10(Math.max(r,1))/lmax);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  // banda workspace L14..L28 (índices 7..14)
+  s+=`<rect x="${x(7)}" y="${mT}" width="${x(14)-x(7)}" height="${ih}" fill="#8a3ffc" opacity="0.06"/>`;
+  s+=`<text x="${(x(7)+x(14))/2}" y="${mT+14}" font-size="11" fill="#8a3ffc" text-anchor="middle" opacity=".7">banda workspace</text>`;
+  for(const g of [1,10,100,1000,10000,100000]){
+    s+=`<line x1="${mL}" x2="${W-mR}" y1="${y(g)}" y2="${y(g)}" stroke="#e3e0da"/>`;
+    s+=`<text x="${mL-6}" y="${y(g)+4}" font-size="11" fill="#888" text-anchor="end">${g>=1000?(g/1000)+'k':g}</text>`;
+  }
+  LAYERS.forEach((L,i)=>{ if(i%2==0||i>=15)
+    s+=`<text x="${x(i)}" y="${H-mB+16}" font-size="11" fill="#888" text-anchor="middle">L${L}</text>`;});
+  s+=`<text x="${mL-44}" y="${mT+ih/2}" font-size="11" fill="#888" transform="rotate(-90 ${mL-44} ${mT+ih/2})" text-anchor="middle">rank (log) — menor = mais provável</text>`;
+  s+=`<text x="${mL+iw/2}" y="${H-6}" font-size="11" fill="#888" text-anchor="middle">camada</text>`;
+  for(const [vals,color] of series){
+    const pts=vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+    s+=`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    vals.forEach((v,i)=>{s+=`<circle cx="${x(i)}" cy="${y(v)}" r="2.6" fill="${color}"/>`;});
+  }
+  s+='</svg>';
+  document.getElementById(el).innerHTML=s;
+}
+
+chart('fig1',[
+ [D.independent[" independent"],'#2563eb'],
+ [D.collusion[" independent"],'#dc2626'],
+ [D.no_echo[" independent"],'#d97706']]);
+
+chart('fig2',[
+ [D.open_concept[" collusion"],'#7c3aed'],
+ [D.open_concept[" cartel"],'#0e7490'],
+ [D.open_concept[" conspiracy"],'#65a30d'],
+ [D.open_concept[" agreement"],'#9f7aea'],
+ [D.open_concept[" independent"],'#999999']]);
+
+chart('fig3',[
+ [D.independent[" No"],'#2563eb'],
+ [D.collusion[" No"],'#dc2626'],
+ [D.no_echo[" No"],'#d97706']]);
+
+// tabelas brutas
+let html='';
+for(const cond in D){
+  html+=`<h4>${cond}</h4><div class="tscroll"><table><tr><th>token</th>`+
+    LAYERS.map(L=>`<th>L${L}</th>`).join('')+'</tr>';
+  for(const tok in D[cond]){
+    html+=`<tr><td><code>${tok.trim()}</code></td>`+
+      D[cond][tok].map(v=>`<td class="num">${v.toLocaleString('pt-BR')}</td>`).join('')+'</tr>';
+  }
+  html+='</table></div>';
+}
+document.getElementById('rawtables').innerHTML=html;
+</script>
+</body>
+</html>

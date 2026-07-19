@@ -27,10 +27,15 @@
 #   3. imprime top tokens por camada, curva logit(Yes)-logit(No), rank de keywords
 #   4. gera a resposta real do modelo para conferência
 #
+# OUTPUT: as tabelas completas vão para report_<modelo>_<timestamp>.txt;
+# o console mostra só o progresso (1 linha por etapa) e o caminho do txt.
+#
 # Conceitos: ver NOTES.md.
 
 # %%%
+import datetime
 import os
+import sys
 
 import torch
 import transformers
@@ -97,6 +102,26 @@ else:
     lens = jlens.JacobianLens.load(lens_path)
 print(model)
 print(lens)
+
+# ---------------------------------------------------------------------------
+# Relatório completo vai para um .txt; console fica só com o progresso.
+# Truque: redirecionamos sys.stdout para o arquivo (todos os print das
+# análises caem lá) e status() escreve na saída original do terminal.
+# ---------------------------------------------------------------------------
+_console = sys.stdout
+_stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+REPORT_PATH = f"report_{ACTIVE_MODEL}_{_stamp}.txt"
+_report = open(REPORT_PATH, "w")
+_report.write(f"# run_local.py — {ACTIVE_MODEL} ({CFG['model_id']}) — {_stamp}\n")
+sys.stdout = _report
+
+
+def status(msg: str) -> None:
+    """Linha de progresso no terminal (o stdout está indo para o .txt)."""
+    print(msg, file=_console, flush=True)
+
+
+status(f"relatório completo em: {REPORT_PATH}")
 
 # Camadas vêm do checkpoint do lens, não de um range hardcoded.
 LAYERS = lens.source_layers[::2]
@@ -257,7 +282,10 @@ def analyze(label: str, user_text: str) -> dict:
     }
 
 
-RESULTS = {label: analyze(label, text) for label, text in PROMPTS.items()}
+RESULTS = {}
+for label, text in PROMPTS.items():
+    RESULTS[label] = analyze(label, text)
+    status(f"[{label}] analisado — resposta: {RESULTS[label]['answer']!r}")
 
 # %%%
 # ---------------------------------------------------------------------------
@@ -342,6 +370,7 @@ for label, text in PROMPTS.items():
     out_path = Path(__file__).parent / f"viz_{ACTIVE_MODEL}_{label}.html"
     out_path.write_text(page)
     print(f"visualização salva: {out_path.name}  (abrir com: open {out_path.name})")
+    status(f"visualização salva: {out_path.name}")
 
 # %%%
 # ---------------------------------------------------------------------------
@@ -438,7 +467,9 @@ def swap_experiment(user_text: str) -> None:
     )
 
 
+status(f"comparações entre condições gravadas em {REPORT_PATH}")
 swap_experiment(PROMPTS["independent"])
+status(f"swap L{SWAP_LAYER} concluído (resultados no txt)")
 
 print(
     "\nComo ler (detalhes em NOTES.md):\n"
@@ -449,3 +480,8 @@ print(
     "    'collusion', antes do crossover Yes-No.\n"
     "  - J-lens != logit-lens em camada média = conteúdo interno genuíno.\n"
 )
+
+# Restaura o stdout e fecha o relatório.
+sys.stdout = _console
+_report.close()
+print(f"\npronto. relatório completo: {REPORT_PATH}")

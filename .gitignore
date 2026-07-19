@@ -15,8 +15,9 @@ wheels/
 # Segredos
 .env
 
-# Outputs de run (dashboards regeneráveis)
+# Outputs de run (dashboards regeneráveis + relatórios txt de cada run)
 viz_*.html
+report_*.txt
 
 # Repo vendorizado do jlens (clone externo; walkthrough.ipynb já conteve
 # token — nunca commitar daqui)

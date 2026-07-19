@@ -114,9 +114,53 @@ deltas: independent.
 4. Swap (independent→collusion na L~24): resposta vira No→Yes com α
    moderado em pelo menos parte das runs (artigo: 54–70% de sucesso).
 
-### Resultados
+### Resultados (run de 2026-07-18)
 
-(preencher após a run)
+Respostas do modelo: independent → 'No', collusion → 'Yes', no_echo →
+'Yes', open_concept → 'Conspiracy'. Relatório didático:
+`relatorio_run002.html`.
+
+**P1 — CONFIRMADA.** Δ(Yes−No) vs baseline: ruído (±0.4) até L12 nas duas
+colunas; a partir de L14 ambas positivas e crescentes na banda workspace —
+collusion +1.06 (L16) → +4.62 (L28); no_echo +0.56 (L16) → +5.38 (L28).
+no_echo acompanha collusion sem palavra-gatilho → sinal de RUN-001 não era
+eco lexical.
+
+**P2 — CONFIRMADA.** Rank de `independent` no no_echo salta de ~800 (L14)
+para 18k–76k em L16–L26 (pico 76k em L18), espelhando collusion (32k–100k),
+enquanto no baseline fica em 736–20k. Dissociação começa exatamente em L16
+(início da banda) nas duas condições de coordenação.
+
+**P3 — CONFIRMADA (resultado mais forte).** open_concept: `collusion` cai
+de 146k (L16) → 3.2k (L18) → **rank 1 em L20–L28** — emergência no meio da
+banda workspace, ~8 camadas antes do regime motor. `cartel` (12→2) e
+`conspiracy` (38→3) acompanham; `agreement` chega a rank 20 em L24.
+`independent` é suprimido ATIVAMENTE: rank 203k–227k em L18–L26, pior que
+o acaso (~124k) → sugere eixo bipolar coordenação↔independência.
+Nota: o modelo respondeu 'Conspiracy' (não 'Collusion') apesar de
+`collusion` rank 1 no lens até L28 — na última camada o top vira
+'Con/Coll/Cart' (fragmentos BPE de início de palavra; a resposta começa
+turno novo, sem espaço à frente).
+
+**P4 — FALHOU.** Swap independent→collusion na L21, α ∈ {4, 8, 16}:
+resposta permanece 'No' em todos. A intervenção FUNCIONA no lens
+(J-lens@L22 mostra 'collusion' no top-1 com α≥8, e com α=16 o top é só
+variantes de collusion), mas o verdict não vira. Leitura: o conceito foi
+escrito no workspace, porém (a) direção de 1ª ordem via J̄ᵀ pode não ser a
+direção causal usada downstream, (b) delta somado em TODAS as posições
+pode diluir/conflitar, (c) artigo reporta 54–70% de sucesso — n=1 pode ser
+o azar da moeda. Diagnóstico pendente antes de concluir "sem causalidade".
+
+### Modificações pós-run
+
+- Output completo agora vai para `report_<modelo>_<timestamp>.txt`;
+  console só progresso (pedido do usuário; report_*.txt no .gitignore).
+
+### Próximos passos sugeridos para RUN-003 (swap)
+
+- Variar camada do swap (L16–L26), α intermediários, delta só na última
+  posição vs todas, e/ou patching real de residual entre prompts
+  (substituição, não soma) — o full patching do backlog é o teste decisivo.
 
 ---
 
