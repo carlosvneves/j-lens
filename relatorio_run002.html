@@ -56,9 +56,9 @@ summary{cursor:pointer;font-weight:600}
 <body>
 <div class="wrap">
 
-<span class="badge">RUN-002 + RUN-003 · 18–19 jul 2026 · Qwen3.5-4B · MacBook M5 (MPS)</span>
+<span class="badge">RUN-002 a RUN-004 · 18–19 jul 2026 · Qwen3.5-4B · MacBook M5 (MPS)</span>
 <h1>O modelo "pensa" em colusão antes de responder?</h1>
-<p class="sub">Relatório didático das RUN-002 e RUN-003 — Jacobian Lens aplicado a prompts de
+<p class="sub">Relatório didático das RUN-002 a RUN-004 — Jacobian Lens aplicado a prompts de
 colusão de preços. Reprodução do método de Anthropic,
 <a href="https://transformer-circuits.pub/2026/workspace">“Verbalizable Representations
 Form a Global Workspace in Language Models”</a>, adaptado à pesquisa de
@@ -347,7 +347,73 @@ controle mora nos 90–94% de variância que o lens não captura. Para
 monitoramento antitruste isso é uma boa notícia dupla: dá para ler a "intenção"
 do agente, e a direção de leitura não é um botão trivialmente manipulável.</div>
 
-<h2>5. O que isso significa para a pesquisa de colusão algorítmica</h2>
+<h2>5. RUN-004 — saindo do n=1: paráfrases, controle negativo, doador forte</h2>
+<p>Tudo até aqui era um prompt por condição. A RUN-004 (19/07/2026) rodou
+<b>6 paráfrases por condição</b>, um <b>controle negativo</b> novo (contato
+explícito entre concorrentes, mas sobre assunto inócuo — tempo, golfe,
+caridade — seguido de preços iguais) e repetiu o patch com um <b>doador de
+margem folgada</b> ("form a secret cartel agreement to fix their prices",
+margem própria +2,12).</p>
+
+<h3>5.1 A escada dose-resposta</h3>
+<p>Δ(Yes−No) médio ± desvio vs a média do independent, por camada
+(banda workspace):</p>
+<div class="tscroll"><table>
+<tr><th>Camada</th><th>collusion (explícito)</th><th>no_echo (inferido)</th><th>neg_control (contato inócuo)</th></tr>
+<tr><td>L16</td><td class="num">+1,07 ± 0,40</td><td class="num">+0,71 ± 0,35</td><td class="num">+0,14 ± 0,42</td></tr>
+<tr><td>L18</td><td class="num">+2,46 ± 0,26</td><td class="num">+1,74 ± 0,81</td><td class="num">+0,14 ± 0,46</td></tr>
+<tr><td>L20</td><td class="num">+3,85 ± 0,85</td><td class="num">+1,93 ± 1,35</td><td class="num">+0,49 ± 0,53</td></tr>
+<tr><td>L22</td><td class="num">+6,08 ± 1,85</td><td class="num">+2,91 ± 1,99</td><td class="num">+0,95 ± 1,38</td></tr>
+<tr><td>L24</td><td class="num">+7,94 ± 2,04</td><td class="num">+4,08 ± 2,83</td><td class="num">+1,23 ± 1,25</td></tr>
+<tr><td>L26</td><td class="num">+8,51 ± 1,93</td><td class="num">+4,49 ± 3,03</td><td class="num">+1,39 ± 1,21</td></tr>
+<tr><td>L28</td><td class="num">+9,65 ± 2,13</td><td class="num">+5,27 ± 3,41</td><td class="num">+2,04 ± 1,39</td></tr>
+</table></div>
+<div class="box ok"><b>O sinal sobrevive ao n&gt;1 e ganha estrutura:</b>
+média − desvio &gt; 0 em toda a banda para collusion E no_echo (predição 2 ✔),
+e o controle negativo fica sempre abaixo de metade do no_echo (predição 4 ✔) —
+contato inócuo + preços iguais quase não move o workspace. A surpresa é o
+<b>gradiente</b>: collusion ≈ 2× no_echo em todas as camadas. O workspace não
+codifica um binário "coordenou/não coordenou" — codifica a <b>força da
+evidência</b> de coordenação (explícita &gt; inferida &gt; contato inócuo &gt;
+independência). Ranks confirmam: mediana do rank de <code>independent</code>
+em L18–L26: independent 21,8k ≈ neg_control 26,2k &lt;&lt; no_echo 48,3k &lt;
+collusion 86,9k.</div>
+
+<h3>5.2 Achado novo: suspeita interna sem condenação</h3>
+<p>As <em>respostas</em>: independent 6/6 'No', collusion 5/6 'Yes',
+neg_control 3/3 'No' — mas <b>no_echo só 2/6 'Yes'</b> (a predição 1 esperava
+≥5/6). Um erro do desenho? Não: olhe a dissociação. No no_echo o sinal interno
+é claramente pró-Yes (tabela acima), mas as margens finais ficam todas coladas
+em zero (−1,5 a +0,9) e o verdict verbalizado sai 'No' na maioria.</p>
+<div class="box"><b>O modelo representa a suspeita e não comete a condenação.</b>
+É um paralelo direto da doutrina antitruste de <i>conscious parallelism</i>:
+contato + paralelismo de preços geram inferência, mas não bastam para condenar
+sem "plus factors". Para detecção de colusão algorítmica, este é o resultado
+mais importante da run: <b>o monitor interno vê o que o output esconde</b> —
+um sistema de triagem baseado no lens ranquearia esses cenários como suspeitos
+mesmo quando a resposta verbalizada é "No". Curiosidade na direção oposta:
+uma paráfrase de acordo <em>explícito</em> ("agree to charge the same price")
+saiu 'No' (margem −0,50) — o verdict verbalizado erra nos dois sentidos;
+o sinal de workspace é mais estável que ele.</div>
+
+<h3>5.3 O flip do patch fica robusto com doador forte</h3>
+<p>Na RUN-003 o patch só flipou em L22, com margem +0,12 — herdada de um doador
+quase indeciso (+0,25). Com o doador de cartel explícito (margem +2,12):</p>
+<div class="tscroll"><table>
+<tr><th>Camada do patch</th><th>Resposta</th><th>Margem</th><th>Δ vs baseline (−0,75)</th></tr>
+<tr class="hit"><td>L18</td><td>'Yes' «FLIP»</td><td class="num">+0,50</td><td class="num">+1,25</td></tr>
+<tr class="hit"><td>L20</td><td>'Yes' «FLIP»</td><td class="num">+1,00</td><td class="num">+1,75</td></tr>
+<tr class="hit"><td>L22</td><td>'Yes' «FLIP»</td><td class="num">+1,12</td><td class="num">+1,88</td></tr>
+<tr class="hit"><td>L24</td><td>'Yes' «FLIP»</td><td class="num">+1,00</td><td class="num">+1,75</td></tr>
+<tr class="hit"><td>L26</td><td>'Yes' «FLIP»</td><td class="num">+1,00</td><td class="num">+1,75</td></tr>
+</table></div>
+<p><b>5/5 flips</b> (predição 5 ✔). A transferência é parcial (~metade da
+margem do doador — esperado para patch de uma única posição), mas o efeito é
+estável em toda a banda L18–L26: o fio-de-navalha da RUN-003 era a fraqueza do
+doador, não do método. Fecha a cadeia causal: o estado da última posição na
+banda workspace carrega o verdict, de forma transplantável e dose-dependente.</p>
+
+<h2>6. O que isso significa para a pesquisa de colusão algorítmica</h2>
 <ul>
 <li><b>O modelo tem um conceito interno de coordenação, não um reflexo lexical.</b>
 O controle no_echo elimina a explicação "ele só copiou a palavra do prompt":
@@ -357,38 +423,45 @@ reorganizar suas representações internas em torno do eixo coordenação/indepe
 no meio da rede — o julgamento jurídico é computado no workspace e só depois
 verbalizado. Isso abre a porta para <em>monitorar</em> agentes de precificação:
 ler o workspace pode revelar "intenção de coordenar" antes de qualquer output.</li>
+<li><b>O sinal é graduado e específico</b> (RUN-004): escada dose-resposta
+independent &lt; contato inócuo &lt;&lt; coordenação inferida &lt; coordenação
+explícita — o workspace mede força de evidência, e não dispara com mero contato.</li>
+<li><b>O monitor interno vê o que o output esconde</b> (RUN-004): nos cenários
+de coordenação inferida o verdict verbalizado sai majoritariamente "No", mas o
+workspace acusa a suspeita — base conceitual para triagem de risco que não
+depende da resposta do agente.</li>
 <li><b>A representação parece bipolar</b> (supressão ativa de "independent" abaixo
 do acaso), sugerindo um eixo linear. Mas a RUN-003 mostrou o limite: escrever
 na direção de leitura não muda o verdict (§4.1), enquanto transplantar o estado
 completo muda (§4.2). Ler o workspace ≠ controlar o circuito causal.</li>
 </ul>
 
-<h2>6. Limitações honestas</h2>
+<h2>7. Limitações honestas</h2>
 <ul>
-<li><b>n=1 por condição.</b> Um prompt por célula. A bateria de paráfrases
-(~10 por condição, já no backlog) é o próximo passo obrigatório antes de qualquer
-afirmação estatística.</li>
+<li><b>n=6 por condição</b> (era n=1 até a RUN-003). Dá média e desvio, não
+teste de hipótese sério; as sobreposições de min–max nos ranks mostram que
+n=6 ainda é pouco para separação categórica.</li>
 <li><b>Lens fora de domínio.</b> Fit em WikiText, lendo prompts jurídicos; captura
 ~6–10% da variância. Por isso todo o desenho é contrastivo.</li>
-<li><b>Falta controle negativo.</b> "Conversaram sobre o tempo e praticaram o mesmo
-preço" diria se qualquer contato + preços iguais dispara o sinal (backlog).</li>
 <li><b>Um modelo, 4B.</b> Replicação planejada: Qwen3.6-27B no Colab e
 gemma-4-E4B-it (outra família) — a infraestrutura multi-modelo já está pronta
 (<code>model_configs.py</code>).</li>
-<li><b>Flip do patch no fio da navalha:</b> o doador (collusion) tem margem
-final de só +0,25 — o flip em L22 herda essa indecisão. RUN-004 testa doador
-com margem folgada.</li>
+<li><b>Patch de uma única posição.</b> Transfere ~metade da margem do doador;
+patch multi-posição diria quanto do verdict mora fora da última posição.</li>
+<li><b>Leve traço no controle negativo</b> (Δ +1,2 a +2,0 em L24–L28):
+"contato entre concorrentes" deixa suspeita residual mesmo inócuo — a
+fronteira exata pede mais variações de controle.</li>
 </ul>
 
-<h2>7. Próximos passos (RUN-004, desenho pré-registrado)</h2>
+<h2>8. Próximos passos</h2>
 <ol>
-<li><b>Bateria de paráfrases</b> (6 por condição) → média ± desvio de Δ(Yes−No)
-e ranks: tira todos os achados do regime n=1.</li>
-<li><b>Controle negativo</b>: contato inócuo ("conversaram sobre o tempo") +
-preços iguais — mede se qualquer contato dispara o sinal.</li>
-<li><b>Patch com doador forte</b> (cartel explícito, margem folgada): o flip
-deve ficar robusto em várias camadas, não só em L22.</li>
-<li>Depois: replicação 27B (Colab) e cross-família (Gemma-4-E4B-it).</li>
+<li><b>Replicação em escala e cross-família</b>: Qwen3.6-27B (Colab) e
+gemma-4-E4B-it — o gradiente dose-resposta (§5.1) sobrevive à troca de
+modelo?</li>
+<li><b>Quantificar a triagem</b>: usar o Δ de workspace como score de risco e
+medir separação (AUC) entre condições com bateria maior de paráfrases.</li>
+<li><b>Patch multi-posição</b> e variações do controle negativo (contato sem
+preço igual; preço igual sem contato) para mapear a fronteira do conceito.</li>
 </ol>
 
 <details><summary>Apêndice — dados brutos (rank por camada, última posição do prompt)</summary>

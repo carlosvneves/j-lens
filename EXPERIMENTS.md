@@ -292,9 +292,52 @@ Modelo: Qwen3.5-4B. Script: `run_004.py` (output → report_*.txt).
 5. Doador forte: margem própria > +2; patch flipa em ≥3 das 5 camadas
    com margem final > +1 (flip robusto, não fio de navalha).
 
-### Resultados
+### Resultados (run de 2026-07-19, report_qwen3.5-4b_run004_20260719-222245.txt)
 
-(preencher após a run)
+**P1 — PARCIAL.** independent 6/6 'No' ✔; collusion 5/6 'Yes' ✔ (a exceção
+é notável: "agree to charge the same price" → 'No', margem −0.50 — acordo
+explícito e o modelo erra o verdict!); **no_echo 2/6 'Yes' ✘** (previa
+≥5/6). Ver dissociação abaixo — o miss é informativo, não ruído.
+
+**P2 — CONFIRMADA (com gradiente).** Δ(Yes−No) vs média do independent na
+banda: collusion +1.07±0.40 (L16) → +9.65±2.13 (L28); no_echo +0.71±0.35
+→ +5.27±3.41. Média−desvio > 0 em toda a banda nas duas ✔. MAS não são
+indistinguíveis: collusion ≈ 2× no_echo consistentemente — o workspace
+codifica a FORÇA da evidência (explícita > inferida), não um binário.
+
+**P3 — CONFIRMADA na direção, limiar raspado.** Mediana do rank de
+'independent' em L18–L26: independent 21.8k (previa <20k — raspou),
+collusion 86.9k ✔, no_echo 48.3k ✔ (>40k). Min–max se sobrepõem
+(independent chega a 61k; no_echo mínimo 19.5k) — separação de medianas
+clara, mas não categórica com n=6.
+
+**P4 — CONFIRMADA.** neg_control fica perto do independent: Δ na banda
++0.14 a +2.04, sempre < metade do no_echo; rank de 'independent' mediana
+26.2k (≈ o próprio independent, 21.8k). Contato inócuo + preços iguais
+NÃO dispara o sinal — o que o workspace representa é coordenação
+INFERIDA, não mera co-ocorrência de contato e paralelismo. (Há um leve
+gradiente residual em L24–L28, +1.2 a +2.0: "contato" deixa um traço
+fraco de suspeita.)
+
+**P5 — CONFIRMADA.** Doador forte: margem +2.12 (>+2 ✔). Patch flipa
+**5/5 camadas** (L18–L26), margens +0.50 a +1.12 (4/5 ≥ +1.0). O flip da
+RUN-003 não era fio de navalha do método — era a margem fraca do doador.
+Transferência parcial (~metade da margem do doador), consistente com o
+patch de UMA posição.
+
+### Achado novo (não previsto): suspeita interna sem condenação
+
+No no_echo o sinal interno é claramente pró-Yes (P2 ✔) mas o verdict
+final é 'No' em 4/6 — margens finais todas perto de zero (−1.5 a +0.9).
+O modelo REPRESENTA a suspeita no workspace e não comete a condenação no
+output. Paralelo jurídico direto: evidência de contato + paralelismo
+gera inferência mas não basta para condenar (doutrina de conscious
+parallelism / plus factors). Para detecção de colusão algorítmica é o
+resultado-chave da run: o monitor interno (lens) vê o que o output
+esconde — ranking de risco interno ≠ resposta verbalizada.
+
+Escada dose-resposta completa (Δ médio na banda L22–L28):
+independent 0 < neg_control ~+1.4 < no_echo ~+4.2 < collusion ~+8.0.
 
 ---
 
