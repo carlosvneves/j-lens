@@ -56,9 +56,9 @@ summary{cursor:pointer;font-weight:600}
 <body>
 <div class="wrap">
 
-<span class="badge">RUN-002 · 18 jul 2026 · Qwen3.5-4B · MacBook M5 (MPS)</span>
+<span class="badge">RUN-002 + RUN-003 · 18–19 jul 2026 · Qwen3.5-4B · MacBook M5 (MPS)</span>
 <h1>O modelo "pensa" em colusão antes de responder?</h1>
-<p class="sub">Relatório didático da RUN-002 — Jacobian Lens aplicado a prompts de
+<p class="sub">Relatório didático das RUN-002 e RUN-003 — Jacobian Lens aplicado a prompts de
 colusão de preços. Reprodução do método de Anthropic,
 <a href="https://transformer-circuits.pub/2026/workspace">“Verbalizable Representations
 Form a Global Workspace in Language Models”</a>, adaptado à pesquisa de
@@ -294,7 +294,60 @@ e nesse regime BPE "Conspiracy" venceu. O conceito interno e o token de
 superfície são coisas distintas — mais um argumento para ler o workspace, não
 só o output.</p>
 
-<h2>4. O que isso significa para a pesquisa de colusão algorítmica</h2>
+<h2>4. RUN-003 — do ler ao escrever: o teste causal</h2>
+<p>A falha do swap na RUN-002 deixou uma pergunta aberta: o conceito no workspace
+é <em>causa</em> do verdict ou só um reflexo legível? A RUN-003 (19/07/2026)
+atacou isso com dois braços, sobre o prompt <i>independent</i>
+(baseline: 'No', margem Yes−No = −0,75):</p>
+<ul>
+<li><b>Braço A — steering de 1ª ordem em grade</b>: somar
+α·J̄ᵀ(w<sub>collusion</sub>−w<sub>independent</sub>) ao residual, variando
+camada {16…26} × α {4, 8, 16} × escopo (todas as posições vs. só a última).
+36 células.</li>
+<li><b>Braço B — patching real</b>: <em>substituir</em> o residual da última
+posição do prompt independent pelo do prompt collusion (estado completo, não
+uma direção), camada a camada {14…28}.</li>
+</ul>
+
+<h3>4.1 Braço A: zero em 36 células — e o modo de falha é revelador</h3>
+<p>Nenhuma célula flipou; as margens ficaram imóveis ou <em>pioraram</em>
+(−0,4 a −1,2). Com α=16 aparecem os dois modos de falha: em L18 a intervenção
+destrói a margem (−4,0, disrupção); em L26 o modelo passa a <b>cuspir "collus"
+como resposta</b> — a injeção grita o token por cima da geração, sem tocar o
+julgamento. Escopo "última posição" ≈ "todas": o problema não era conflito
+posicional (predição 2 refutada).</p>
+
+<h3>4.2 Braço B: o estado completo transfere o verdict</h3>
+<div class="tscroll"><table>
+<tr><th>Camada do patch</th><th>Resposta</th><th>Margem Yes−No</th><th>Δ vs baseline (−0,75)</th></tr>
+<tr><td>L14</td><td>'No'</td><td class="num">−0,75</td><td class="num">+0,00</td></tr>
+<tr><td>L16</td><td>'No'</td><td class="num">−0,75</td><td class="num">+0,00</td></tr>
+<tr><td>L18</td><td>'No'</td><td class="num">−0,12</td><td class="num">+0,62</td></tr>
+<tr><td>L20</td><td>'No'</td><td class="num">0,00</td><td class="num">+0,75</td></tr>
+<tr class="hit"><td>L22</td><td><b>'Yes' «FLIP»</b></td><td class="num">+0,12</td><td class="num">+0,88</td></tr>
+<tr><td>L24</td><td>'No'</td><td class="num">0,00</td><td class="num">+0,75</td></tr>
+<tr><td>L26</td><td>'No'</td><td class="num">0,00</td><td class="num">+0,75</td></tr>
+<tr><td>L28</td><td>'No'</td><td class="num">0,00</td><td class="num">+0,75</td></tr>
+</table></div>
+<p>A curva conta a história: em L14–L16 o patch não faz nada (o estado do doador
+ainda não contém o verdict); de L18 em diante o efeito satura em +0,75/+0,88 —
+e a margem patchada estaciona em ~0,00/+0,12, <b>exatamente o nível do próprio
+doador</b> (o prompt collusion terminava com margem +0,25). O patch transfere o
+estado de decisão quase por inteiro; o flip só aparece em L22 porque o doador é
+quase indeciso — qualquer ruído decide o sinal.</p>
+
+<div class="box"><b>Síntese RUN-002 + RUN-003 (o resultado central até aqui):
+leitura ≠ escrita.</b> O subespaço que o J-lens lê contém o conceito
+("collusion" em rank 1 no open_concept; margens e ranks contrastando por
+condição), e o estado do residual é causalmente suficiente para o verdict
+(o patch completo o transfere). Mas empurrar o residual ao longo da direção de
+leitura (J̄ᵀw) não altera a computação downstream — essa direção é ortogonal ao
+canal causal. O workspace verbalizável é uma <b>janela de observação</b>; o
+controle mora nos 90–94% de variância que o lens não captura. Para
+monitoramento antitruste isso é uma boa notícia dupla: dá para ler a "intenção"
+do agente, e a direção de leitura não é um botão trivialmente manipulável.</div>
+
+<h2>5. O que isso significa para a pesquisa de colusão algorítmica</h2>
 <ul>
 <li><b>O modelo tem um conceito interno de coordenação, não um reflexo lexical.</b>
 O controle no_echo elimina a explicação "ele só copiou a palavra do prompt":
@@ -305,13 +358,12 @@ no meio da rede — o julgamento jurídico é computado no workspace e só depoi
 verbalizado. Isso abre a porta para <em>monitorar</em> agentes de precificação:
 ler o workspace pode revelar "intenção de coordenar" antes de qualquer output.</li>
 <li><b>A representação parece bipolar</b> (supressão ativa de "independent" abaixo
-do acaso), sugerindo um eixo linear. Mas o swap mostrou o limite: dá para
-<em>escrever</em> "collusion" no subespaço legível sem mudar o verdict —
-ler o workspace ≠ controlar o circuito causal. O elo causal fica para o
-patching completo (RUN-003).</li>
+do acaso), sugerindo um eixo linear. Mas a RUN-003 mostrou o limite: escrever
+na direção de leitura não muda o verdict (§4.1), enquanto transplantar o estado
+completo muda (§4.2). Ler o workspace ≠ controlar o circuito causal.</li>
 </ul>
 
-<h2>5. Limitações honestas</h2>
+<h2>6. Limitações honestas</h2>
 <ul>
 <li><b>n=1 por condição.</b> Um prompt por célula. A bateria de paráfrases
 (~10 por condição, já no backlog) é o próximo passo obrigatório antes de qualquer
@@ -323,16 +375,20 @@ preço" diria se qualquer contato + preços iguais dispara o sinal (backlog).</l
 <li><b>Um modelo, 4B.</b> Replicação planejada: Qwen3.6-27B no Colab e
 gemma-4-E4B-it (outra família) — a infraestrutura multi-modelo já está pronta
 (<code>model_configs.py</code>).</li>
-<li><b>Swap é aproximação de 1ª ordem</b>, não patching real de residual.</li>
+<li><b>Flip do patch no fio da navalha:</b> o doador (collusion) tem margem
+final de só +0,25 — o flip em L22 herda essa indecisão. RUN-004 testa doador
+com margem folgada.</li>
 </ul>
 
-<h2>6. Próximos passos</h2>
+<h2>7. Próximos passos (RUN-004, desenho pré-registrado)</h2>
 <ol>
-<li>Diagnóstico do swap (RUN-003): variar camada (L16–L26), α intermediários,
-delta só na última posição vs todas — e o teste decisivo, patching real de
-residual entre prompts (substituição, não soma de direção).</li>
-<li>Bateria de paráfrases + controle negativo ("weather").</li>
-<li>Replicação 27B (Colab) e cross-família (Gemma-4-E4B-it).</li>
+<li><b>Bateria de paráfrases</b> (6 por condição) → média ± desvio de Δ(Yes−No)
+e ranks: tira todos os achados do regime n=1.</li>
+<li><b>Controle negativo</b>: contato inócuo ("conversaram sobre o tempo") +
+preços iguais — mede se qualquer contato dispara o sinal.</li>
+<li><b>Patch com doador forte</b> (cartel explícito, margem folgada): o flip
+deve ficar robusto em várias camadas, não só em L22.</li>
+<li>Depois: replicação 27B (Colab) e cross-família (Gemma-4-E4B-it).</li>
 </ol>
 
 <details><summary>Apêndice — dados brutos (rank por camada, última posição do prompt)</summary>

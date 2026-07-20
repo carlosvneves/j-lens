@@ -248,6 +248,56 @@ que o lens não captura).
 
 ---
 
+## RUN-004 — pendente — sair do n=1: paráfrases, controle negativo, doador forte
+
+### Motivação
+
+Todos os achados até aqui são n=1 por condição, e o flip do patch (RUN-003)
+está no fio da navalha porque o doador é quase indeciso (margem +0.25).
+RUN-004 dá variância a tudo: bateria de paráfrases, controle negativo de
+"contato inócuo" e patch com doador de margem folgada.
+
+### Condições
+
+Modelo: Qwen3.5-4B. Script: `run_004.py` (output → report_*.txt).
+
+- **Braço A — bateria de paráfrases (n=6 por condição):** independent,
+  collusion, no_echo — 6 formulações cada, mesmo formato "...Illegal?
+  Just answer Yes or No.". As paráfrases do no_echo não contêm NENHUMA
+  palavra-gatilho (agree/collude/cartel/conspire/coordinate/combine/
+  pact/fix). Métricas por condição: resposta gerada (contagem Yes/No),
+  Δ(Yes−No) por camada média ± desvio vs média do independent, rank de
+  'independent' (mediana e IQR) na banda L18–L26.
+- **Braço B — controle negativo (n=3):** contato explícito + conteúdo
+  inócuo (tempo/golfe/caridade) + preços iguais. Mede se QUALQUER
+  contato entre concorrentes dispara o sinal de coordenação.
+- **Braço C — patch com doador forte:** doador = cartel explícito
+  ("form a secret cartel agreement to fix prices..."); reportar margem
+  do doador; patch da última posição nas camadas {18,20,22,24,26} sobre
+  o prompt independent canônico.
+
+### Predições (registradas ANTES da run)
+
+1. Respostas: collusion e no_echo → 'Yes' em ≥5/6 paráfrases;
+   independent → 'No' em ≥5/6.
+2. Δ(Yes−No) médio na banda L16–L28: collusion e no_echo positivos com
+   média − desvio > 0 (separação de ~1σ do baseline); as duas condições
+   estatisticamente indistinguíveis entre si (conceito, não gatilho).
+3. Rank de 'independent' em L18–L26: mediana do independent < 20k;
+   mediana de collusion/no_echo > 40k; IQRs sem sobreposição.
+4. Controle negativo fica entre independent e no_echo, mais perto do
+   independent (Δ médio < metade do Δ do no_echo). Se colar no no_echo,
+   o sinal é "contato + preço igual", não coordenação inferida —
+   downgrade importante da interpretação.
+5. Doador forte: margem própria > +2; patch flipa em ≥3 das 5 camadas
+   com margem final > +1 (flip robusto, não fio de navalha).
+
+### Resultados
+
+(preencher após a run)
+
+---
+
 ## Backlog metodológico
 
 - Bateria de paráfrases (~10 por condição), média ± desvio de Δ(Yes−No).
