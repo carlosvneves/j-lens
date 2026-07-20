@@ -164,6 +164,53 @@ o azar da moeda. Diagnóstico pendente antes de concluir "sem causalidade".
 
 ---
 
+## RUN-003 — pendente — diagnóstico causal do swap
+
+### Motivação
+
+P4 da RUN-002 falhou de forma informativa: o conceito foi escrito no
+subespaço legível (J-lens@L22 lê 'collusion' com α≥8) mas o verdict não
+virou. RUN-003 isola POR QUÊ, variando os 3 suspeitos de uma vez:
+camada, escopo posicional da intervenção e tipo de intervenção
+(direção de 1ª ordem vs patching real de residual).
+
+### Condições
+
+Modelo: Qwen3.5-4B (mesmo da RUN-001/002). Prompt alvo: `independent`
+(verdict baseline 'No'). Doador do patch: `collusion`. Script:
+`run_swap003.py` (output completo em report_*.txt, console só progresso).
+
+- **Braço A — steering de 1ª ordem (grade):** camadas {16,18,20,22,24,26}
+  × α {4,8,16} × escopo {todas as posições, só última posição do prompt}.
+  Métrica por célula: resposta gerada + margem final logit(Yes)−logit(No).
+- **Braço B — patching real (teste decisivo):** substituir (não somar) o
+  residual da última posição do prompt independent pelo residual da última
+  posição do prompt collusion, camada a camada {14,16,18,20,22,24,26,28}.
+  Sem α: substituição é tudo-ou-nada. Mesmas métricas.
+- Intervenção só no prefill (posições do prompt); passos de decode não são
+  tocados — o efeito propaga via KV cache.
+
+### Predições (registradas ANTES da run)
+
+1. **Braço B vira o verdict** (No→Yes) em pelo menos uma camada da banda
+   L16–L26. Se NEM o patching real virar, o verdict não depende
+   causalmente do residual da última posição nessa banda (sinal
+   distribuído em outras posições) — redesenhar para patch multi-posição.
+2. **Braço A, escopo última posição ≥ escopo todas**: restringir o delta à
+   posição de leitura reduz conflito com o contexto; esperamos margens
+   Yes−No mais deslocadas (ou flip) no escopo 'última'.
+3. **Margem move monotonicamente com α** dentro de cada (camada, escopo)
+   mesmo sem flip; se a margem não se mexer, a direção J̄ᵀ é ortogonal ao
+   circuito do verdict (leitura ≠ escrita) — resultado publicável por si.
+4. Camadas mais eficazes: meio da banda (L18–L24), onde a RUN-002 mostrou
+   o conceito estável; L26+ tarde demais (verdict já comitado no motor).
+
+### Resultados
+
+(preencher após a run)
+
+---
+
 ## Backlog metodológico
 
 - Bateria de paráfrases (~10 por condição), média ± desvio de Δ(Yes−No).
