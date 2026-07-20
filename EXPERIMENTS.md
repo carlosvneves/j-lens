@@ -205,9 +205,46 @@ Modelo: Qwen3.5-4B (mesmo da RUN-001/002). Prompt alvo: `independent`
 4. Camadas mais eficazes: meio da banda (L18–L24), onde a RUN-002 mostrou
    o conceito estável; L26+ tarde demais (verdict já comitado no motor).
 
-### Resultados
+### Resultados (run de 2026-07-19, report_qwen3.5-4b_swap003_20260719-221237.txt)
 
-(preencher após a run)
+Baseline: 'No', margem Yes−No = −0.75.
+
+**P1 — CONFIRMADA (com nuance).** Braço B (patching real) FLIPOU em L22:
+'Yes', margem +0.12. Estrutura da curva: Δ margem = 0.00 em L14–L16,
++0.62 em L18, +0.75/+0.88 em L20–L28. O flip só ocorre em L22 porque a
+margem patchada satura em ~0.00/+0.12 — exatamente o nível do próprio
+doador (collusion tinha margem final +0.25 na RUN-002). Ou seja: o patch
+da última posição TRANSFERE o estado de decisão do doador quase por
+inteiro a partir de L18; o modelo doador é que é quase indeciso.
+Verdict depende causalmente do residual da última posição na banda.
+
+**P2 — REFUTADA.** Escopo 'última' ≈ 'todas' no braço A: ambos nulos.
+Não era conflito posicional.
+
+**P3 — CONFIRMADA a hipótese nula (resultado central da run).** Steering
+J̄ᵀ NÃO move a margem em direção a Yes em nenhuma célula da grade
+(6 camadas × 3 α × 2 escopos = 36 células, zero flips; margens −0.4 a
+−1.2, i.e. imóveis ou levemente piores). Com α=16: L18/todas degrada a
+margem (−4.0) e L26/todas faz o modelo cuspir 'collus' como resposta —
+gritar o token, não mudar o julgamento. Conclusão: a direção de leitura
+do J-lens é ORTOGONAL ao canal causal do verdict — **leitura ≠ escrita**.
+O lens lê o workspace; escrever nele exige o estado real (patch), não a
+direção de 1ª ordem do unembedding.
+
+**P4 — PARCIAL.** Camada eficaz do patch: L22 (meio da banda, como
+previsto), mas o efeito na margem já satura em L18–L20 e persiste até
+L28 (sem janela que se fecha no motor — possivelmente porque o patch na
+última posição carrega o verdict já formado do doador).
+
+### Leitura conjunta RUN-002 + RUN-003
+
+O par (P4 da RUN-002, P3 da RUN-003) forma um resultado coerente e
+publicável: o subespaço que o J-lens LÊ contém o conceito (collusion
+legível, rank 1 no open_concept), mas empurrar o residual ao longo de
+J̄ᵀw não altera a computação downstream — enquanto transplantar o estado
+completo altera (flip em L22). Workspace verbalizável = janela de
+observação; o controle causal mora no complemento (90-94% da variância
+que o lens não captura).
 
 ---
 
