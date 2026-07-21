@@ -56,9 +56,9 @@ summary{cursor:pointer;font-weight:600}
 <body>
 <div class="wrap">
 
-<span class="badge">RUN-002 a RUN-004 · 18–19 jul 2026 · Qwen3.5-4B · MacBook M5 (MPS)</span>
+<span class="badge">RUN-002 a RUN-005 · 18–21 jul 2026 · Qwen3.5-4B + gemma-4-e4b-it · MacBook M5 (MPS)</span>
 <h1>O modelo "pensa" em colusão antes de responder?</h1>
-<p class="sub">Relatório didático das RUN-002 a RUN-004 — Jacobian Lens aplicado a prompts de
+<p class="sub">Relatório didático das RUN-002 a RUN-005 — Jacobian Lens aplicado a prompts de
 colusão de preços. Reprodução do método de Anthropic,
 <a href="https://transformer-circuits.pub/2026/workspace">“Verbalizable Representations
 Form a Global Workspace in Language Models”</a>, adaptado à pesquisa de
@@ -413,7 +413,63 @@ estável em toda a banda L18–L26: o fio-de-navalha da RUN-003 era a fraqueza d
 doador, não do método. Fecha a cadeia causal: o estado da última posição na
 banda workspace carrega o verdict, de forma transplantável e dose-dependente.</p>
 
-<h2>6. O que isso significa para a pesquisa de colusão algorítmica</h2>
+<h2>6. RUN-005 — o método atravessa modelo? (gemma-4-e4b-it)</h2>
+<p>Tudo até aqui é um único modelo (Qwen3.5-4B). A RUN-005 (21/07/2026) repetiu
+as três baterias (RUN-002/003/004) sem alterar código, trocando o modelo pra
+<b>gemma-4-e4b-it</b> (google/gemma-4-E4B-it, instruction-tuned; lens de
+solarkyle/jspace-lenses, fit n=100 — mais raso que o n=1000 do Qwen). A
+variante base <code>gemma-4-e4b</code> nem tem chat template — descartada de
+saída.</p>
+<div class="box warn"><b>Escalas não são comparáveis entre modelos.</b> O
+baseline Yes−No do Gemma é −8,38 (vs −0,75 do Qwen) — é um modelo muito mais
+"decidido" no No cru. Só sinal e padrão relativo entram na comparação abaixo,
+nunca a margem absoluta.</div>
+
+<h3>6.1 O que replica: leitura de conceito</h3>
+<p>No open_concept ("qual o termo jurídico de uma palavra só?"), o Gemma
+converge com força ainda maior que o Qwen: <code>collusion</code> chega a
+<b>rank 1 (0,0%)</b> em L38, e logit-lens/J-lens concordam em
+collusion/cartel/antitrust de L28 a L40. A capacidade do lens de expor um
+conceito jurídico verbalizável no meio da rede generaliza bem cross-família.</p>
+
+<h3>6.2 O que NÃO replica: a causalidade da RUN-003 se inverte</h3>
+<p>No Qwen (RUN-003): steering nunca flipava (36 células, 0 flips); patching
+real flipava em L22. No Gemma acontece o <b>oposto</b>:</p>
+<div class="tscroll"><table>
+<tr><th>Braço</th><th>Qwen (RUN-003)</th><th>Gemma (RUN-005)</th></tr>
+<tr><td>A — steering (todas as posições)</td><td>0/36 flips</td><td class="hit">FLIP em L22, α=8 (margem +6,4)</td></tr>
+<tr><td>B — patching real (última posição)</td><td class="hit">FLIP em L22 (margem +0,12)</td><td>0/8 flips (Δ chega a +6,75 em L28, mas nunca vira)</td></tr>
+</table></div>
+<div class="box"><b>"Leitura ≠ escrita" não é universal — é dependente de
+modelo.</b> A direção J̄ᵀw pode estar alinhada com o canal causal em um modelo
+e ortogonal em outro; o subespaço patchado pode ser causalmente suficiente em
+um e insuficiente em outro. As duas conclusões causais da RUN-003 valem para
+o Qwen especificamente, não para "o método" em geral — cada modelo precisa da
+sua própria RUN-003.</div>
+
+<h3>6.3 RUN-004 no Gemma: sinais na mesma direção, muito mais fracos</h3>
+<div class="tscroll"><table>
+<tr><th>Predição</th><th>Qwen</th><th>Gemma</th></tr>
+<tr><td>P1 — respostas</td><td>collusion 5/6 Yes, no_echo 2/6 Yes</td><td>collusion 4/6 Yes, no_echo <b>0/6 Yes</b> (mais hedge/conservador)</td></tr>
+<tr><td>P2 — Δ no_echo &gt; 0 na banda</td><td>✔ (+0,71 a +5,27)</td><td>✘ oscila entre negativo e +0,87 — sinal de "suspeita sem condenação" não aparece com clareza</td></tr>
+<tr><td>P3 — separação de rank</td><td>independent 21,8k vs collusion 86,9k (ordem de grandeza)</td><td>independent 14,0k vs collusion 19,9k — faixas quase todas sobrepostas; neg_control (34,4k) ficou <em>acima</em> de collusion/no_echo</td></tr>
+<tr><td>P5 — patch doador forte</td><td>5/5 flips</td><td>2/5 flips (L24, L26)</td></tr>
+</table></div>
+<p class="small">Ressalva: as bandas de camada (<code>RANK_BAND</code>,
+<code>STEER_LAYERS</code>, <code>PATCH_LAYERS</code>) foram copiadas do Qwen
+(~36 camadas) pro Gemma (42 camadas) sem reajuste proporcional — parte da
+atenuação pode ser desalinhamento de profundidade relativa, não diferença
+real de arquitetura.</p>
+
+<div class="box ok"><b>Síntese da RUN-005:</b> o Jacobian Lens generaliza bem
+para <em>expor o conceito</em> (leitura), mas os achados <em>causais e
+quantitativos finos</em> (qual intervenção funciona, força da separação de
+rank, robustez do sinal de no_echo) não se transferem automaticamente entre
+famílias de modelo — cada modelo pede sua própria bateria de predições
+pré-registradas e, provavelmente, bandas de camada recalibradas por
+profundidade relativa.</div>
+
+<h2>7. O que isso significa para a pesquisa de colusão algorítmica</h2>
 <ul>
 <li><b>O modelo tem um conceito interno de coordenação, não um reflexo lexical.</b>
 O controle no_echo elimina a explicação "ele só copiou a palavra do prompt":
@@ -436,30 +492,38 @@ na direção de leitura não muda o verdict (§4.1), enquanto transplantar o est
 completo muda (§4.2). Ler o workspace ≠ controlar o circuito causal.</li>
 </ul>
 
-<h2>7. Limitações honestas</h2>
+<h2>8. Limitações honestas</h2>
 <ul>
 <li><b>n=6 por condição</b> (era n=1 até a RUN-003). Dá média e desvio, não
 teste de hipótese sério; as sobreposições de min–max nos ranks mostram que
 n=6 ainda é pouco para separação categórica.</li>
 <li><b>Lens fora de domínio.</b> Fit em WikiText, lendo prompts jurídicos; captura
 ~6–10% da variância. Por isso todo o desenho é contrastivo.</li>
-<li><b>Um modelo, 4B.</b> Replicação planejada: Qwen3.6-27B no Colab e
-gemma-4-E4B-it (outra família) — a infraestrutura multi-modelo já está pronta
-(<code>model_configs.py</code>).</li>
+<li><b>Achados causais e quantitativos não são cross-modelo</b> (RUN-005,
+§6): o que flipa por steering vs patching se inverte entre Qwen e Gemma; a
+separação de rank e o sinal de no_echo são muito mais fracos no Gemma. Só a
+leitura de conceito (qual palavra o workspace acha) generalizou bem.</li>
+<li><b>Bandas de camada não recalibradas por modelo.</b> RUN-005 usou as
+mesmas camadas absolutas do Qwen (36 camadas) no Gemma (42 camadas) — parte
+da atenuação de sinal pode ser desalinhamento de profundidade relativa.</li>
 <li><b>Patch de uma única posição.</b> Transfere ~metade da margem do doador;
 patch multi-posição diria quanto do verdict mora fora da última posição.</li>
-<li><b>Leve traço no controle negativo</b> (Δ +1,2 a +2,0 em L24–L28):
+<li><b>Leve traço no controle negativo</b> (Δ +1,2 a +2,0 em L24–L28 no Qwen):
 "contato entre concorrentes" deixa suspeita residual mesmo inócuo — a
 fronteira exata pede mais variações de controle.</li>
 </ul>
 
-<h2>8. Próximos passos</h2>
+<h2>9. Próximos passos</h2>
 <ol>
-<li><b>Replicação em escala e cross-família</b>: Qwen3.6-27B (Colab) e
-gemma-4-E4B-it — o gradiente dose-resposta (§5.1) sobrevive à troca de
-modelo?</li>
+<li><b>Recalibrar bandas de camada por modelo</b> (proporcional à profundidade,
+não absoluta) antes de comparar RUN-003/004 entre Qwen e Gemma — a RUN-005
+pode estar subestimando o Gemma por desalinhamento de banda.</li>
+<li><b>Replicar RUN-003 (causal) e RUN-004 (bateria) com pré-registro próprio
+por modelo</b>, em vez de assumir que as predições do Qwen valem cross-família;
+Qwen3.6-27B (Colab) como terceiro ponto de dados.</li>
 <li><b>Quantificar a triagem</b>: usar o Δ de workspace como score de risco e
-medir separação (AUC) entre condições com bateria maior de paráfrases.</li>
+medir separação (AUC) entre condições com bateria maior de paráfrases, por
+modelo.</li>
 <li><b>Patch multi-posição</b> e variações do controle negativo (contato sem
 preço igual; preço igual sem contato) para mapear a fronteira do conceito.</li>
 </ol>

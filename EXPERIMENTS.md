@@ -341,6 +341,91 @@ independent 0 < neg_control ~+1.4 < no_echo ~+4.2 < collusion ~+8.0.
 
 ---
 
+## RUN-005 — replicação cross-model: gemma-4-e4b-it
+
+### Motivação
+
+Todo achado até aqui (RUN-002 a RUN-004) é n=1 modelo (Qwen3.5-4B).
+Rodar as mesmas três baterias (RUN-002/003/004) no gemma-4-e4b-it —
+outra família, outro tokenizer, mesmo porte (~4B) — pra saber se os
+achados são propriedade do method ou do modelo específico.
+
+Nota de config: `gemma-4-e4b` (base) não tem chat template — falhou de
+cara. Usado `gemma-4-e4b-it` (instruction-tuned), lens do solarkyle
+(fit n=100, não n=1000 do neuronpedia — [[j-space-research-context]]).
+
+### Condições
+
+Reexecução idêntica de `run_local.py`, `run_swap003.py`, `run_004.py`
+com `JSPACE_MODEL=gemma-4-e4b-it`, sem alterar código nem baterias.
+
+### Resultados
+
+**Escala de margem diferente.** Baseline Yes−No do Gemma é −8.38 (vs
+−0.75 do Qwen) — Gemma é muito mais decidido/conservador no 'No' cru.
+Margens absolutas não são comparáveis entre modelos; só sinal e padrão
+relativo.
+
+**RUN-002 (baseline) replica bem no open_concept.** Pergunta aberta
+("one-word legal term") converge fortemente pra 'collusion'/'cartel'/
+'antitrust' em L28–L40, com rank 1 (0.0%) em L38 — sinal até mais nítido
+que no Qwen. Verdict do collusion prompt fica ambíguo ("Whether... 
+depends") em vez de 'Yes' — Gemma hedgeia mais que Qwen.
+
+**RUN-003 — achado central NÃO replica, e inverte.**
+No Qwen: steering (Braço A) nunca flipava; patching (Braço B) flipava em
+L22. No Gemma acontece o OPOSTO:
+- Braço A (steering): **FLIP em L22, α=8, escopo='todas'** (margem
+  +6.4) — steering funcionou aqui, ao contrário do Qwen.
+- Braço B (patching real): **nenhum flip** em nenhuma das 8 camadas,
+  apesar do Δ vs baseline crescer até +6.75 em L28 — patch NÃO foi
+  suficiente pra virar o verdict, ao contrário do Qwen (flip em L22).
+- Conclusão: "leitura ≠ escrita" (RUN-003/Qwen) não é uma propriedade
+  universal do método — é dependente de arquitetura/modelo. Em outro
+  modelo o canal causal pode estar mais alinhado com a direção J̄ᵀw
+  (steering funciona) ou o subespaço patchado pode não ser suficiente
+  (patching falha). As duas descobertas sobre causalidade da RUN-003 são
+  específicas do Qwen, não do fenômeno.
+
+**RUN-004 — achados parciais, mais fracos que no Qwen.**
+- P1: independent 6/6 'No' ✓. collusion 4/6 'Yes' (Qwen: 5/6) — mais
+  hedge ("Whether... combining... choose"). no_echo **0/6 'Yes'** (Qwen:
+  2/6) — verdict do Gemma é ainda mais conservador que o do Qwen aqui.
+- P2 (dose-resposta): collusion tem Δ positivo crescente na banda
+  L16–L28 (+0.71 a +2.25, salto pra +16 em L30+ fora da banda
+  original). no_echo NÃO é robustamente positivo na mesma banda —
+  oscila entre negativo e levemente positivo (-1.63 a +0.87) — o sinal
+  interno de "suspeita sem condenação" do Qwen não aparece com a mesma
+  clareza aqui.
+- P3 (separação de rank): muito mais fraca. independent mediana 13977,
+  collusion 19854, no_echo 20846, neg_control 34384 — faixas quase
+  todas sobrepostas (Qwen tinha separação de ordem de grandeza:
+  independent 21.8k vs collusion 86.9k). neg_control ficou com rank
+  MAIOR que collusion/no_echo — na direção oposta da hipótese.
+  neg_control também respondeu quase igual ao no_echo em texto
+  verbalizado (ambos majoritariamente 'No' com 1 hedge).
+- P5 (patch com doador forte): doador margem +10.00 (>+2 ✔), mas só
+  **2/5 flips** (L24, L26) — vs 5/5 do Qwen. Transferência causal mais
+  fraca / mais tardia nesse modelo.
+
+**Ressalva de banda.** `RANK_BAND`/`STEER_LAYERS`/`PATCH_LAYERS` foram
+copiados literalmente do Qwen (n_layers≈36) pro Gemma (n_layers=42) sem
+reajustar proporcionalmente — a banda "workspace" pode estar desalinhada
+em profundidade relativa entre os dois modelos. Isso pode explicar parte
+da atenuação dos efeitos no Gemma, não só diferença real de arquitetura.
+
+### Síntese
+
+O método (Jacobian Lens) generaliza bem pra **leitura de conceito**
+(open_concept, dose-resposta qualitativa de collusion). Não generaliza
+automaticamente pros achados **causais e quantitativos finos** da
+RUN-003/004 (qual intervenção funciona, separação de rank, robustez do
+sinal de no_echo) — esses são sensíveis a arquitetura/modelo e exigiriam
+recalibrar bandas de camada e re-registrar predições por modelo, não
+assumir que valem cross-family.
+
+---
+
 ## Backlog metodológico
 
 - Bateria de paráfrases (~10 por condição), média ± desvio de Δ(Yes−No).
