@@ -110,8 +110,11 @@ BATTERY = {
 }
 
 KEYWORD = "independent"  # keyword de dissociação (achado central da RUN-002)
-BAND = [16, 18, 20, 22, 24, 26, 28]  # banda p/ agregados
-RANK_BAND = [18, 20, 22, 24, 26]
+# Bandas de camada vêm do config do modelo (recalibradas por profundidade);
+# fallback = valores originais do Qwen (36 camadas).
+_BANDS = CFG.get("bands", {})
+BAND = _BANDS.get("agg_band", [16, 18, 20, 22, 24, 26, 28])  # agregados
+RANK_BAND = _BANDS.get("rank_band", [18, 20, 22, 24, 26])
 
 
 def format_prompt(user_text: str) -> str:
@@ -235,7 +238,7 @@ STRONG_DONOR = (
     " at the same level." + SUFFIX
 )
 TARGET = BATTERY["independent"][0] + SUFFIX
-PATCH_LAYERS = [18, 20, 22, 24, 26]
+PATCH_LAYERS = _BANDS.get("patch004", [18, 20, 22, 24, 26])
 
 TARGET_INPUTS = tokenizer(format_prompt(TARGET), return_tensors="pt").to(device)
 DONOR_INPUTS = tokenizer(format_prompt(STRONG_DONOR), return_tensors="pt").to(device)

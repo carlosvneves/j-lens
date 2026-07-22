@@ -87,9 +87,12 @@ SRC_PROMPT = "Two competitors independently choose the same price. Illegal? Just
 DONOR_PROMPT = "Two competitors combine to choose the same price. Illegal? Just answer Yes or No."
 SWAP_SRC, SWAP_TGT = "independent", "collusion"
 
-STEER_LAYERS = [16, 18, 20, 22, 24, 26]
+# Bandas de camada vêm do config do modelo (recalibradas por profundidade);
+# fallback = valores originais do Qwen (36 camadas).
+_BANDS = CFG.get("bands", {})
+STEER_LAYERS = _BANDS.get("steer", [16, 18, 20, 22, 24, 26])
 STEER_ALPHAS = [4.0, 8.0, 16.0]
-PATCH_LAYERS = [14, 16, 18, 20, 22, 24, 26, 28]
+PATCH_LAYERS = _BANDS.get("patch003", [14, 16, 18, 20, 22, 24, 26, 28])
 
 
 def format_prompt(user_text: str) -> str:

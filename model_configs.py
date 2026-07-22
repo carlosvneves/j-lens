@@ -33,6 +33,15 @@ MODEL_CONFIGS = {
         "chat_template_kwargs": {"enable_thinking": False},
         "gloss_file": "jacobian-lens/assets/qwen_gloss.json.gz",
         "approx_download_gb": 9,
+        # Bandas de camada (36 camadas). Originais das RUN-003/004 — manter
+        # p/ comparabilidade com resultados já registrados.
+        "bands": {
+            "steer": [16, 18, 20, 22, 24, 26],          # swap003 braço A
+            "patch003": [14, 16, 18, 20, 22, 24, 26, 28],  # swap003 braço B
+            "agg_band": [16, 18, 20, 22, 24, 26, 28],   # run_004 agregados
+            "rank_band": [18, 20, 22, 24, 26],          # run_004 rank keyword
+            "patch004": [18, 20, 22, 24, 26],           # run_004 braço C
+        },
     },
     # Alternativa local (mesmo porte, outra família — teste de robustez ou
     # fallback se o Qwen sumir do Hub de novo). Lens do solarkyle (fit n=100,
@@ -51,6 +60,31 @@ MODEL_CONFIGS = {
         # Template do Gemma não tem switch de thinking — sem kwargs extras.
         "chat_template_kwargs": {},
         # Gloss é específico do vocabulário; o do repo local é Qwen.
+        "gloss_file": None,
+        "approx_download_gb": 8,
+        # Bandas recalibradas p/ 42 camadas (RUN-005 usou as do Qwen — confound
+        # registrado no EXPERIMENTS.md). Base: (a) proporcional 42/36 sobre a
+        # banda Qwen 16–26 → 19–30; (b) evidência da RUN-005: patch só mexe a
+        # margem a partir de L24, doador forte flipa L24/L26, Δ ainda subindo
+        # em L28; Δ collusion explode em L30+. Mantém L22 no steer (flip
+        # observado lá).
+        "bands": {
+            "steer": [18, 20, 22, 24, 26, 28, 30],
+            "patch003": [20, 22, 24, 26, 28, 30, 32, 34],
+            "agg_band": [20, 22, 24, 26, 28, 30, 32],
+            "rank_band": [22, 24, 26, 28, 30],
+            "patch004": [22, 24, 26, 28, 30],
+        },
+    },
+    "gemma-4-e4b": {
+        "model_id": "google/gemma-4-e4b",
+        "model_revision": None,
+        "auto_class": "AutoModelForImageTextToText",
+        "lens_loader": "hub_file",
+        "lens_repo": "neuronpedia/jacobian-lens",
+        "lens_file": "gemma-4-e4b/jlens/Salesforce-wikitext/gemma-4-E4B_jacobian_lens.pt",
+        "lens_revision": None,
+        "chat_template_kwargs": {},
         "gloss_file": None,
         "approx_download_gb": 8,
     },

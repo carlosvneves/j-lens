@@ -426,6 +426,74 @@ assumir que valem cross-family.
 
 ---
 
+## RUN-005b — re-execução no gemma-4-e4b-it com bandas de camada recalibradas
+
+### Motivação
+
+RUN-005 usou bandas de camada copiadas literalmente do Qwen (36 camadas)
+no Gemma (42 camadas) — confound registrado na ressalva de banda. As
+bandas foram recalibradas: proporcional 42/36 + evidência da própria
+RUN-005 (patch só mexe a margem a partir de L24; Δ ainda subindo em L28;
+Δ collusion explode em L30+). As bandas foram movidas para
+`model_configs.py`, como chave `"bands"` por modelo (`steer`, `patch003`,
+`agg_band`, `rank_band`, `patch004`). `run_swap003.py` e `run_004.py`
+agora leem `CFG["bands"]`, com fallback nos valores originais do Qwen.
+
+Bandas novas do Gemma:
+- `steer`: [18, 20, 22, 24, 26, 28, 30]
+- `patch003`: [20, 22, 24, 26, 28, 30, 32, 34]
+- `agg_band`: [20..32]
+- `rank_band`: [22, 24, 26, 28, 30]
+- `patch004`: [22, 24, 26, 28, 30]
+
+Qwen mantém os valores originais (preserva comparabilidade histórica).
+
+### Condições
+
+Mesma bateria da RUN-005, `JSPACE_MODEL=gemma-4-e4b-it`. Reports:
+`report_gemma-4-e4b-it_swap003_20260721-214232.txt` e
+`report_gemma-4-e4b-it_run004_20260721-214338.txt` (run_local re-gerado
+em 20260721-214123, idêntico em conteúdo ao anterior).
+
+### Resultados
+
+**Patch com doador forte (Braço C, run_004) melhora de 2/5 para 4/5.**
+Com a banda antiga L18–26 o patch dava 2/5 flips (predição 5 falhava).
+Com a banda nova L22–30: **4/5 flips** (L24, L26, L28, L30), Δ
+monotônico crescendo de +11.75 a +18.00. Predição 5 (≥3/5) passa. A
+fraqueza registrada na RUN-005 era, em boa parte, artefato de banda.
+
+**Rank da keyword 'independent' — dose-resposta reaparece parcialmente.**
+Banda antiga (L18–26): independent 14k < collusion 20k ≈ no_echo 21k <
+neg_control 34k — ordem embaralhada (neg_control acima de collusion).
+Banda nova (L22–30): independent 7499 < neg_control 8885 < no_echo 11598
+< collusion 20235 — a ordem dose-resposta correta (independent mais
+baixo, collusion mais alto) reaparece, mas sem atingir os limiares
+pré-registrados do Qwen (collusion/no_echo > 40k não foi atingido).
+
+**Steering (Braço A, swap003, banda L18–30) — inversão causal persiste.**
+Flip continua único em L22/α=8/escopo='todas' (margem +6.4), igual à
+RUN-005. Nas camadas 24–30, nenhum flip — margens ficam entre −8 e −12
+mesmo com α=16.
+
+**Patch com doador fraco (Braço B, banda L20–34) — nunca flipa.**
+Margem satura em −1.5 a partir de L28–34; a resposta migra de 'No' para
+hedge ("Whether it..."). Δ máximo +6.88.
+
+### Síntese
+
+Parte da atenuação observada no Gemma na RUN-005 era artefato de banda
+mal calibrada: com bandas proporcionalmente ajustadas, o patch forte
+sobe de 2/5 para 4/5 flips e a ordem de rank da dose-resposta reaparece.
+Porém a inversão causal steering-vs-patching entre Qwen e Gemma
+(descrita na RUN-003/005) **sobrevive à recalibração** — é diferença
+real de arquitetura/modelo, não confound de banda. Refinamento: o canal
+causal do Gemma está concentrado em L24–L30 e exige doador forte; doador
+fraco só produz hedge, nunca flip. "Leitura ≠ escrita" (achado central da
+RUN-003) segue confirmado como não-universal entre modelos.
+
+---
+
 ## Backlog metodológico
 
 - Bateria de paráfrases (~10 por condição), média ± desvio de Δ(Yes−No).

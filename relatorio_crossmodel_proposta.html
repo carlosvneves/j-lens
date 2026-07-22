@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>O que sobreviveu ao teste cross-model? — proposta de comunicação</title>
+<style>
+:root{--bg:#faf9f6;--card:#fff;--ink:#1c1c1c;--muted:#666;--line:#e3e0da;--accent:#8a3ffc;--ok:#0d7a3f;--warn:#9a6700;--bad:#b3261e;--qwen:#2563eb;--gemma:#dc2626}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}.wrap{max-width:880px;margin:auto;padding:2.5rem 1.25rem 5rem}h1{font-size:clamp(2rem,5vw,3rem);line-height:1.12;letter-spacing:-.035em;margin:.35rem 0 .7rem}h2{font-size:1.45rem;margin:3rem 0 .8rem;border-bottom:2px solid var(--line);padding-bottom:.35rem}h3{font-size:1.08rem;margin:1.4rem 0 .4rem}p{margin:.6rem 0}.sub,.small{color:var(--muted)}.sub{font-size:1.08rem;max-width:72ch}.badge{display:inline-block;background:#efe9ff;color:var(--accent);border-radius:99px;padding:.1rem .7rem;font-size:.8rem;font-weight:700;letter-spacing:.03em}
+.hero,.card,.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.15rem 1.3rem;margin:1rem 0}.hero{border-color:#d8c8ff;background:linear-gradient(135deg,#f7f3ff,#fff)}.box{border-left:4px solid var(--accent);border-radius:7px;background:#f4f0fb}.box.ok{border-color:var(--ok);background:#eef7f0}.box.warn{border-color:var(--warn);background:#fff7e6}.box.bad{border-color:var(--bad);background:#fdf0ef}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}.metric{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1rem}.metric b{display:block;font-size:1.18rem;line-height:1.2;margin-bottom:.35rem}.qwen{color:var(--qwen)}.gemma{color:var(--gemma)}.label{font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}.quote{font-size:1.05rem;padding:1rem 1.15rem;background:#f0eee9;border-radius:10px;border-left:4px solid var(--accent)}.tscroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9rem;margin:.8rem 0}th,td{border:1px solid var(--line);padding:.48rem .6rem;text-align:left;vertical-align:top}th{background:#f3f1ec}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:#f0eee9;border-radius:4px;padding:.08em .35em}pre{white-space:pre-wrap;background:#f0eee9;border-radius:10px;padding:1rem;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.claim{display:grid;grid-template-columns:32px 1fr;gap:.75rem;margin:.85rem 0}.mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;background:var(--accent)}details{margin:1rem 0}summary{cursor:pointer;font-weight:700}@media(max-width:650px){.grid{grid-template-columns:1fr}.wrap{padding-top:1.5rem}}
+</style>
+</head>
+<body><main class="wrap">
+<span class="badge">PROPOSTA 2 · CRÍTICA CROSS-MODEL · RUN-002 A RUN-005</span>
+<h1>O que sobreviveu quando o experimento saiu do Qwen?</h1>
+<p class="sub">Uma versão para decidir o que é defensável comunicar publicamente depois de testar a mesma bateria em duas famílias de modelos.</p>
+
+<section class="hero">
+  <div class="label">A conclusão honesta</div>
+  <p><b>Sim, há uma história publicável.</b> Mas ela mudou: o resultado mais forte não é “encontramos a intenção interna de cartel”. É que <b>a leitura verbalizável de um conceito jurídico replicou entre modelos, enquanto as conclusões causais e quantitativas não replicaram de forma simples.</b></p>
+  <p class="small">Esse contraste é mais interessante do que uma réplica perfeita: ele delimita exatamente o que o Jacobian Lens parece medir de forma robusta — e o que ainda depende da arquitetura, da calibração e do desenho experimental.</p>
+</section>
+
+<section>
+<h2>O placar cross-model, sem exagero</h2>
+<div class="grid">
+  <div class="metric"><b class="qwen">✓ Leitura de conceito replica</b>Nos dois modelos, o prompt aberto torna <code>collusion</code>/<code>cartel</code> altamente acessíveis no J-lens antes da saída final.</div>
+  <div class="metric"><b class="gemma">↔ Causalidade não replica</b>No Qwen, patching flipou e steering falhou; no Gemma, steering flipou e o patch fraco não foi suficiente (o patch com doador forte flipa — em camadas mais fundas).</div>
+  <div class="metric"><b>△ Sinal contextual enfraquece</b>O gradiente <em>no_echo</em> do Qwen aparece mais fraco no Gemma; após recalibrar a banda (RUN-005b), a ordem dose-resposta reaparece no rank, sem atingir os limiares do Qwen.</div>
+</div>
+</section>
+
+<section>
+<h2>O que pode ser dito</h2>
+<div class="claim"><div class="mark">1</div><div><b>Há evidência cross-model de leitura de conceito.</b> Em ambos os modelos, o J-lens torna conceitos de coordenação/colusão verbalizáveis no processamento intermediário, antes do token final.</div></div>
+<div class="claim"><div class="mark">2</div><div><b>A intervenção é dependente do modelo.</b> A mesma ideia de intervenção produz efeitos causais diferentes em Qwen e Gemma; não existe, ainda, um “botão universal” de steering ou patching.</div></div>
+<div class="claim"><div class="mark">3</div><div><b>Auditar apenas a resposta final é limitado.</b> O modelo pode produzir um veredito hesitante ou conservador enquanto o readout interno registra conceitos relevantes — mas esse sinal precisa ser validado por modelo e tarefa.</div></div>
+</section>
+
+<section>
+<h2>O que precisa sair da narrativa anterior</h2>
+<table>
+<tr><th>Formulação antiga ou arriscada</th><th>Por que é fraca após a RUN-005</th><th>Formulação melhor</th></tr>
+<tr><td>“O modelo tem intenção de coordenar.”</td><td>O lens lê uma representação verbalizável; ele não mede intenção, consciência ou conduta real.</td><td>“O modelo torna um conceito de coordenação verbalizável no seu estado intermediário.”</td></tr>
+<tr><td>“Ler o workspace revela o que o output esconde.”</td><td>É plausível no Qwen, mas <em>no_echo</em> não foi robusto no Gemma.</td><td>“O readout pode complementar o output, mas precisa de validação por modelo.”</td></tr>
+<tr><td>“Leitura ≠ escrita.”</td><td>A direção causal se inverteu entre os modelos.</td><td>“A relação entre leitura e intervenção é uma propriedade empírica de cada modelo.”</td></tr>
+<tr><td>“O método generaliza.”</td><td>Generaliza para leitura de conceito, não automaticamente para métricas, camadas ou intervenção.</td><td>“A replicação separa um componente robusto de componentes ainda sensíveis à arquitetura.”</td></tr>
+</table>
+</section>
+
+<section>
+<h2>Por que a divergência é cientificamente útil</h2>
+<p>Uma réplica idêntica teria dado mais conforto; uma réplica parcial dá uma pergunta melhor. O Gemma usa outra família, outro tokenizer e um lens ajustado em outra escala (<code>n=100</code>, contra <code>n=1000</code> no Qwen). Além disso, as camadas avaliadas foram copiadas do Qwen (~36 camadas) para o Gemma (42), sem recalibração proporcional.</p>
+<div class="box warn"><b>Portanto:</b> diferenças no Gemma podem ser diferença real de arquitetura, desalinhamento de profundidade relativa ou diferença na qualidade/calibração do lens. A RUN-005b (seção seguinte) resolveu parcialmente essa ambiguidade: o desalinhamento de profundidade explicava o patch forte fraco e o rank embaralhado; não explica a inversão steering/patching, que sobrevive à recalibração.</div>
+<p>Esse é o próximo experimento que transforma a observação em argumento: recalibrar a banda por modelo, pré-registrar a bateria específica e comparar efeitos normalizados, não margens absolutas.</p>
+</section>
+
+<section>
+<h2>Atualização (21 jul, noite): a recalibração foi feita — RUN-005b</h2>
+<p>As bandas de camada foram recalibradas para as 42 camadas do Gemma (proporcional 42/36 + evidência da própria RUN-005: efeito de patch começando em L24 e Δ ainda subindo em L28) e a bateria foi re-executada. Resultado: <b>parte da "atenuação" do Gemma era artefato de banda — mas a inversão causal central permanece.</b></p>
+
+<h3>O que a recalibração corrigiu</h3>
+<div class="tscroll"><table>
+<tr><th>Métrica (Gemma)</th><th>Banda Qwen (L18–26)</th><th>Banda recalibrada (L22–30)</th><th>Leitura</th></tr>
+<tr><td>Patch com doador forte</td><td>2/5 flips — predição 5 <b>falhou</b></td><td><b>4/5 flips</b> (L24–30, Δ de +11.75 a +18.00, monotônico) — predição 5 <b>passa</b></td><td>A "fraqueza" do patch forte era desalinhamento de profundidade, não diferença de arquitetura.</td></tr>
+<tr><td>Rank da keyword <code>independent</code> (mediana)</td><td>indep 14k &lt; coll 20k ≈ no_echo 21k &lt; neg 34k (ordem embaralhada)</td><td>indep 7.5k &lt; neg 8.9k &lt; no_echo 11.6k &lt; coll 20.2k</td><td>Na banda certa, a <b>ordem dose-resposta reaparece</b> (independent &lt; neg_control &lt; no_echo &lt; collusion), embora sem atingir os limiares pré-registrados do Qwen.</td></tr>
+</table></div>
+
+<h3>O que permaneceu igual (e por isso é mais crível)</h3>
+<ul>
+<li><b>A inversão causal se mantém.</b> Steering flipa só em L22/α=8 (camadas mais fundas 24–30: nada, mesmo com α=16). Patch com doador fraco, estendido até L34, <b>nunca flipa</b>: satura em margem −1.5 a partir de L28, com o modelo migrando de 'No' firme para hedge ('Whether it…').</li>
+<li><b>Refinamento importante:</b> no Gemma, "patch não é suficiente" depende da força do doador. Doador fraco (combine) → hedge, nunca Yes; doador forte (cartel secreto, margem +10) → flip robusto e monotônico em L24+. O canal causal existe e está em L24–L30 — o doador da RUN-003 era fraco demais para atravessá-lo.</li>
+</ul>
+
+<div class="box ok"><b>Consequência para a narrativa:</b> a divergência cross-model encolheu, mas não sumiu. Depois de recalibrar, o Gemma se parece <em>mais</em> com o Qwen no quantitativo (dose-resposta em rank, patch forte robusto) e continua diferente no causal fino (qual intervenção flipa, e onde). Isso fortalece a claim 1, modera a claim de "sinal contextual enfraquece" — e mantém a claim 2 intacta.</div>
+</section>
+
+<section>
+<h2>A frase que eu usaria em uma apresentação</h2>
+<p class="quote">“Encontramos um resultado dividido: o Jacobian Lens expõe conceitos de coordenação em duas famílias de modelos, mas a forma como essas representações se conectam causalmente à resposta muda de modelo para modelo. A lição não é que encontramos um detector universal de intenção; é que a interpretabilidade precisa ser validada como uma ciência comparativa, e não apenas demonstrada em um caso.”</p>
+</section>
+
+<section>
+<h2>Posso postar no LinkedIn?</h2>
+<div class="box ok"><b>Sim — se o post for sobre a descoberta metodológica, não sobre uma promessa de monitoramento jurídico.</b> A história é interessante para um público técnico: uma replicação cross-model mostrou um padrão que persiste e outro que se inverte. Isso é pesquisa séria e comunica maturidade experimental.</div>
+<p>Evite vender como “IA detecta cartéis internamente”, “prova de consciência” ou “o método lê intenção”. Essas frases vão além dos dados e convidam uma crítica fácil.</p>
+</section>
+
+<section>
+<h2>Rascunho de post para LinkedIn</h2>
+<details open><summary>Versão recomendada</summary>
+<pre>O que acontece quando você repete um experimento de interpretabilidade em outra família de modelos?
+
+Testamos a mesma bateria de Jacobian Lens em dois LLMs pequenos: Qwen3.5-4B e Gemma-4-E4B-it.
+
+O resultado não foi uma réplica simples — e foi justamente isso que tornou o experimento mais interessante.
+
+✓ Em ambos os modelos, conceitos de coordenação de preços (“collusion”, “cartel”) aparecem no readout interno antes da resposta final.
+
+✗ Mas os resultados causais se inverteram: no Qwen, trocar o estado interno mudou o veredito e o steering falhou; no Gemma foi o contrário — e mesmo depois de recalibrar as camadas para a profundidade do modelo, a inversão persistiu.
+
+E teve uma segunda lição, mais sutil: parte das “diferenças entre modelos” que medimos primeiro era artefato nosso — tínhamos reusado as camadas calibradas para um modelo de 36 camadas num modelo de 42. Corrigido isso, várias métricas voltaram a concordar. As que não voltaram são as interessantes.
+
+Isso muda a conclusão: o Jacobian Lens parece útil para ler conceitos verbalizáveis em diferentes modelos, mas não autoriza assumir que uma mesma direção interpretável controla todos eles.
+
+Para mim, a lição é maior que este domínio: interpretabilidade não pode ser demonstrada em um modelo e tratada como lei geral. Ela precisa de réplicas cross-model, controles e calibração própria.
+
+Não é um detector de “intenção de cartel”. É um passo para entender quando sinais internos podem — e quando não podem — complementar o output de um modelo.
+
+#Interpretability #AIResearch #MechanisticInterpretability #LLM #Antitrust #AIAlignment</pre>
+</details>
+</section>
+
+<section>
+<h2>Checklist antes de publicar</h2>
+<ul>
+<li>Use “dois modelos” e nomeie Qwen e Gemma; não diga “LLMs” como se a amostra fosse ampla.</li>
+<li>Diga que o resultado causal divergiu. Não esconda essa parte: ela é o núcleo do post.</li>
+<li>Explique que as escalas e bandas não eram diretamente comparáveis entre os modelos.</li>
+<li>Inclua “não mede intenção, consciência ou ilegalidade” uma vez, sem transformar o texto num pedido de desculpas.</li>
+<li>Linke o relatório técnico completo quando o documento definitivo estiver pronto.</li>
+</ul>
+</section>
+
+<section>
+<h2>Próximos passos que fortalecem artigo e comunicação</h2>
+<ol>
+<li><s>Recalibrar a faixa de camadas por profundidade relativa e por um critério observável, antes de repetir a comparação causal.</s> <b>Feito (RUN-005b)</b> — bandas agora vivem no config por modelo (<code>model_configs.py</code>).</li>
+<li>Padronizar ou comparar a qualidade dos lenses (especialmente <code>n=100</code> versus <code>n=1000</code>).</li>
+<li>Ampliar cenários verbais em cada modelo com pares mínimos e controles negativos.</li>
+<li>Reportar métricas normalizadas e intervalos, não apenas exemplos de flip.</li>
+</ol>
+</section>
+
+<p class="small" style="margin-top:3rem;border-top:1px solid var(--line);padding-top:1rem">Proposta de comunicação baseada nos resultados registrados em <a href="relatorio_run002.html">relatorio_run002.html</a>, especialmente RUN-005. A proposta anterior permanece preservada em <a href="relatorio_run002_proposta.html">relatorio_run002_proposta.html</a>.</p>
+</main></body></html>
